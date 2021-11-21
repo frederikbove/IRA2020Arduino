@@ -16,6 +16,9 @@ NATS Clients in WSL
 * Install pub & sub: 
 ** go get github.com/nats-io/go-nats-examples/tools/nats-pub
 ** go get github.com/nats-io/go-nats-examples/tools/nats-sub
+* Add ~/go/bin to PATH
+* nats-pub -s nats://demo.nats.io area3001.blink 10
+* ./nats-sub -s nats://demo.nats.io:4222 "area3001.*"
 
 NATS Server from Source:
 * go get github.com/nats-io/nats-streaming-server
