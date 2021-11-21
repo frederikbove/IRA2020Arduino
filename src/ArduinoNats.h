@@ -220,10 +220,9 @@ class NATS {
 		NATSUtil::MillisTimer ping_timer;
 		NATSUtil::MillisTimer reconnect_timer;
 
+	public:
 		int outstanding_pings;
 		int reconnect_attempts;
-
-	public:
 
 		bool connected;
 
