@@ -137,8 +137,16 @@ void control_protocol_handler(NATS::msg msg) {
 }
 
 void nats_on_connect() {
+  //Serial.println("Connect Blink");
   nats.subscribe("area3001.blink", nats_blink_handler);
   nats.subscribe("area3001.control", control_protocol_handler);
+}
+
+void nats_on_error() {
+  Serial.print("ErrorL outstanding pings: ");
+  Serial.print(nats.outstanding_pings, DEC);
+  Serial.print(" reconnect attempts: ");
+  Serial.println(nats.reconnect_attempts, DEC);
 }
 
 void setup() {
@@ -168,10 +176,15 @@ void setup() {
   /// NATS
   Serial.print("connecting to nats ...");
   nats.on_connect = nats_on_connect;
+  nats.on_error = nats_on_error;
   if(nats.connect())
   {
     Serial.print(" connected to: ");
     Serial.println(NATS_SERVER);
+  }
+  else
+  {
+    Serial.println("NATS not connected!");
   }
 }
 
@@ -191,6 +204,7 @@ void loop() {
   }
 
 	nats.process();
+  //nats.publish("area3001.blink", "ping");
   yield();
 
   /// CHECK FOR IR DATA
