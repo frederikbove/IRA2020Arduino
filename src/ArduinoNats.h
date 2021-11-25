@@ -175,9 +175,9 @@ class NATS {
 	public:
 
 		typedef struct {
-			const char* subject;
-			const int sid;
-			const char* reply;
+			const char* subject;			// Subject name this message was received on
+			const int sid;					// The unique alphanumeric subscription ID of the subject
+			const char* reply;				// The inbox subject on which the publisher is listening for responses
 			const char* data;
 			const int size;
 		} msg;
@@ -186,6 +186,7 @@ class NATS {
 
 		typedef void (*sub_cb)(msg e);
 		typedef void (*event_cb)();
+		typedef void (*event_msg_cb)(const char* msg);
 
 		class Sub {
 			public:
@@ -229,9 +230,9 @@ class NATS {
 		int max_outstanding_pings;
 		int max_reconnect_attempts;
 
-		event_cb on_connect;
+		event_msg_cb on_connect;
 		event_cb on_disconnect;
-		event_cb on_error;
+		event_msg_cb on_error;
 
 	// Constructor ----------------------------------------- //
 	
@@ -305,7 +306,7 @@ class NATS {
 					NATS_CLIENT_VERSION,
 					(user == NULL)? "null" : user,
 					(pass == NULL)? "null" : pass);
-		}
+		}   //@TODO not good enough, need to send "sig": nonce from INFO message if nonce exist
 
 		char* client_readline(size_t cap = 128) {
 			char* buf = (char*)malloc(cap * sizeof(char));
@@ -368,8 +369,12 @@ class NATS {
 			}
 			else if (strcmp(argv[0], NATS_CTRL_OK) == 0) {
 			}
-			else if (strcmp(argv[0], NATS_CTRL_ERR) == 0) {
-				if (on_error != NULL) on_error();
+			else if (strcmp(argv[0], NATS_CTRL_ERR) == 0) {				//@TODO need to verify this more, check spec to see if it gives more info.
+				if (on_error != NULL)
+				{
+					on_error(argv[1]);			// dirty hack need to combine all argv and return @TODO
+					on_error(argv[2]);
+				} 
 				disconnect();
 			}
 			else if (strcmp(argv[0], NATS_CTRL_PING) == 0) {
@@ -381,7 +386,7 @@ class NATS {
 			else if (strcmp(argv[0], NATS_CTRL_INFO) == 0) {
 				send_connect();
 				connected = true;
-				if (on_connect != NULL) on_connect();
+				if (on_connect != NULL) on_connect(argv[1]);
 			}
 
 			free(buf);
