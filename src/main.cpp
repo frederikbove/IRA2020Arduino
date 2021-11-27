@@ -9,6 +9,9 @@
 
 #include <dmx.h>
 
+#include "eeprom_map.h"           // this keeps the map of the non-volatile storage & the variables belonging to it
+#include "operation_modes.h"      // these define all possible operation modes of IRA2020
+
 //#include "FastLED.h"
 #include "wifi_pass.h"
 
@@ -29,9 +32,13 @@
 #define MODE3		    36
 #define MODE4		    39
 
-#define NATS_SERVER "demo.nats.io"
+//#define NATS_SERVER "demo.nats.io"
+#define NATS_SERVER "192.168.20.79"
+#define NATS_ROOT_TOPIC "area3001"
+#define MAX_PIXELS 100
 
-int ext_mode = 15; // This is to read in the 4 mode configuration pins (external), defaults on 15 = no pins connected
+uint    ext_mode = 15;  // This is to read in the 4 mode configuration pins (external), defaults on 15 = no pins connected
+String  mac_string;     // MAC Address in string format
 
 WiFiClient client;
 NATS nats(
@@ -41,15 +48,10 @@ NATS nats(
 IRrecv irrecv(IR_PIN);
 decode_results results;
 
+#include "nats_cb_handlers.h"
+
 // Reads in the 4 pins that configure the operation mode of the unit and returns them as a single Mode value
-int getMode() {
-	/*
-  Serial.print("Mode pin settings: ");
-	Serial.print(digitalRead(MODE3), BIN);
-	Serial.print(digitalRead(MODE4), BIN);
-	Serial.print(digitalRead(MODE1), BIN);
-	Serial.println(digitalRead(MODE2), BIN);
-  */
+inline int getMode() {
 	return (digitalRead(MODE2) + 2*digitalRead(MODE1) + 4*digitalRead(MODE4) + 8*digitalRead(MODE3));
 }
 
@@ -98,6 +100,24 @@ void wifi_printMAC() {
   Serial.print(mac[0], HEX);
 }
 
+// Build the string that is used for NATS subscriptions
+void wifi_setMACstring() {
+  byte mac[6];
+  WiFi.macAddress(mac);
+  mac_string =  String(mac[5], HEX) + 
+                String("_") +
+                String(mac[4], HEX) + 
+                String("_") +
+                String(mac[3], HEX) + 
+                String("_") +
+                String(mac[2], HEX) + 
+                String("_") +
+                String(mac[1], HEX) + 
+                String("_") +
+                String(mac[0], HEX);
+}
+
+// Called if something goes wrong with the WIFI connection
 void WiFiEvent(WiFiEvent_t event)
 {
     Serial.printf("[WiFi-event] event: %d\n", event);
@@ -182,13 +202,15 @@ void WiFiEvent(WiFiEvent_t event)
         default: break;
     }}
 
+// Set up the WIFI connection
 void connect_wifi() {
-  Serial.print("connecting to ");
+  Serial.print("[WIFI] connecting to ");
   Serial.println(WIFI_SSID);
 
   Serial.print("with MAC: ");
   wifi_printMAC();
   Serial.println(" ");
+  wifi_setMACstring();
 
   // Delete old config
   WiFi.disconnect(true);
@@ -208,28 +230,26 @@ void connect_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-void nats_blink_handler(NATS::msg msg) {
-  Serial.println("nats message received");
-  nats.publish(msg.reply, "received!");
-
-	int count = atoi(msg.data);
-	while (count-- > 0) {
-		digitalWrite(15, LOW);
-		delay(100);
-		digitalWrite(15, HIGH);
-		delay(100);
-	}
-}
-
-void control_protocol_handler(NATS::msg msg) { 
-  nats.publish(msg.reply, "+OK");
-}
-
 void nats_on_connect(const char* msg) {
-  Serial.print("[NATS] Connect: ");
+  Serial.print("[NATS] Connect, Server INFO: ");
   Serial.println(msg);
-  nats.subscribe("area3001.blink", nats_blink_handler);
-  nats.subscribe("area3001.control", control_protocol_handler);
+
+  String nats_debug_blink_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".blink");
+  Serial.print("[NATS] Subscribing: ");
+  Serial.println(nats_debug_blink_topic);
+  nats.subscribe(nats_debug_blink_topic.c_str(), nats_debug_blink_handler);
+
+  String nats_mode_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".mode");
+  Serial.print("[NATS] Subscribing: ");
+  Serial.println(nats_mode_topic);
+  nats.subscribe(nats_mode_topic.c_str(), nats_debug_blink_handler);
+
+  String nats_ping_topic = String(NATS_ROOT_TOPIC) + String(".ping");
+  Serial.print("[NATS] Subscribing: ");
+  Serial.println(nats_ping_topic);
+  nats.subscribe(nats_ping_topic.c_str(), nats_ping_handler);
+
+  nats_announce();
 }
 
 void nats_on_error(const char* msg) {
@@ -251,6 +271,10 @@ void setup() {
   Serial.begin(115200);
   Serial.println(" ");
   Serial.println("booting ira firmware");
+
+  // EEPROM
+  EEPROM.begin(EEPROM_SIZE);
+  eeprom_restate();             // read all values back from EEPROM upon startup
 
   /// IO
   configure_IO();
@@ -293,6 +317,7 @@ void loop() {
     Serial.print("Ext Mode changed: ");
     Serial.println(getMode(), DEC); 
     ext_mode = getMode();
+    nats_publish_ext_mode(ext_mode);
   }
 
   /// CHECK IF WIFI IS STILL CONNECTED
