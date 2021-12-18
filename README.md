@@ -23,3 +23,16 @@ NATS Clients in WSL
 NATS Server from Source:
 * go get github.com/nats-io/nats-streaming-server
 
+SOME RGB Strings
+*  AAQD/wAAAP8AAAD///// = 4 pixel RGB = R, G, B, Wh
+
+SOME FX Strings
+* AAAA/wAAAP8A = fast red/green loop
+* AAoA/wAAAP8A = slow red/green loop
+* AQoA////AAAA = random white pixels
+* AgoA////AAD/ = blue/white fgnd/bgnd loop
+* BHg3AKoAqgCq = Fire FX
+
+ENCODING WEBSITE: https://base64.guru/converter/encode/hex
+
+

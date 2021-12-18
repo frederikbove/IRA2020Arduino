@@ -33,7 +33,7 @@
 //#define NATS_SERVER "demo.nats.io"
 #define NATS_SERVER     "192.168.20.79"
 #define NATS_ROOT_TOPIC "area3001"
-#define MAX_PIXELS      100
+#define MAX_PIXELS      120
 
 #include "eeprom_map.h"           // this keeps the map of the non-volatile storage & the variables belonging to it
 #include "operation_modes.h"      // these define all possible operation modes of IRA2020
@@ -55,6 +55,7 @@ NATSUtil::NATSServer server;
 
 CRGB leds[MAX_PIXELS];
 
+#include "build_in_fx.h"
 #include "nats_cb_handlers.h"
 
 /*
@@ -122,7 +123,7 @@ void wifi_setMACstring() {
 // Called if something goes wrong with the WIFI connection
 void WiFiEvent(WiFiEvent_t event)
 {
-    Serial.printf("[WiFi-event] event: %d\n", event);
+    Serial.printf("[WiFi-event] event: %d: ", event);
 
     switch (event) {
         case SYSTEM_EVENT_WIFI_READY: 
@@ -264,37 +265,37 @@ bool parse_server(const char* msg) {
 
 void nats_print_server_info() {
   Serial.println("[NATS] Server INFO: ");
-  Serial.print("Server ID: ");
+  Serial.print("[NATS] Server ID: ");
   Serial.println(server.server_id);
 
-  Serial.print("Server Name: ");
+  Serial.print("[NATS] Server Name: ");
   Serial.println(server.server_name);
 
-  Serial.print("Server Version: ");
+  Serial.print("[NATS] Server Version: ");
   Serial.println(server.server_version);
 
-  Serial.print("Proto: ");
+  Serial.print("[NATS] Proto: ");
   Serial.println(server.proto);
 
-  Serial.print("Go Version: ");
+  Serial.print("[NATS] Go Version: ");
   Serial.println(server.go_version);
 
-  Serial.print("Server Host: ");
+  Serial.print("[NATS] Server Host: ");
   Serial.println(server.server_host);
 
-  Serial.print("Server Port: ");
+  Serial.print("[NATS] Server Port: ");
   Serial.println(server.port);
 
-  Serial.print("Headers: ");
+  Serial.print("[NATS] Headers: ");
   Serial.println(server.headers);
 
-  Serial.print("Max Payload: ");
+  Serial.print("[NATS] Max Payload: ");
   Serial.println(server.max_payload);
 
-  Serial.print("Client ID: ");
+  Serial.print("[NATS] Client ID: ");
   Serial.println(server.client_id);
 
-  Serial.print("Client IP: ");
+  Serial.print("[NATS] Client IP: ");
   Serial.println(server.client_ip);
 }
 
@@ -327,6 +328,9 @@ void nats_on_connect(const char* msg) {
   Serial.println(nats_reset_topic);
   nats.subscribe(nats_reset_topic.c_str(), nats_reset_handler);
 
+
+  //@TODO the following only need to subscribe upon mode change!
+
   String nats_dmx_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".dmx");
   Serial.print("[NATS] Subscribing: ");
   Serial.println(nats_dmx_topic);
@@ -341,6 +345,11 @@ void nats_on_connect(const char* msg) {
   Serial.print("[NATS] Subscribing: ");
   Serial.println(nats_rgb_topic);
   nats.subscribe(nats_rgb_topic.c_str(), nats_rgb_frame_handler);
+
+  String nats_fx_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".fx");
+  Serial.print("[NATS] Subscribing: ");
+  Serial.println(nats_fx_topic);
+  nats.subscribe(nats_fx_topic.c_str(), nats_fx_handler);
 
   nats_announce();
 }
@@ -525,4 +534,14 @@ void loop() {
     irrecv.resume();  // Receive the next value
   }
 
+  // @TODO THESE IF's NEED TO BECOME A SWITCH STATEMENT
+  if( (nats_mode == MODE_RGB_TO_PIXELS_W_IR ) || (nats_mode == MODE_RGB_TO_PIXELS_WO_IR) )   
+  {
+    FastLED.show();
+  } 
+  if( (nats_mode == MODE_FX_TO_PIXELS_W_IR ) || (nats_mode == MODE_FX_TO_PIXELS_WO_IR) )   
+  {
+    process_build_in_fx();
+    FastLED.show();
+  }
 }

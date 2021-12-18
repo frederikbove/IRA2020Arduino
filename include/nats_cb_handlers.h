@@ -131,18 +131,119 @@ void nats_rgb_frame_handler(NATS::msg msg) {
     Serial.println(" ");
 
     uint16_t pix_len = (dec_data[0] << 8) + dec_data[1];
-    Serial.print("[NATS] RGB Data Length: ");
+    Serial.print("[NATS] RGB Pixel Data Length: ");
     Serial.println(pix_len);
+    
+    if(pix_len > MAX_PIXELS)
+    {
+      Serial.println("[NATS] Too many pixels");
+      nats.publish(msg.reply, "NOK");   // Not in the right mode
+      return;
+    }
 
-    Serial.print("[NATS] RGB Pixel datapoints: ");
+    Serial.print("[NATS] RGB Per Pixel Datapoints: ");
     Serial.println(dec_data[2]);
 
+    for(int led_index = 0; led_index < pix_len; led_index++) // from 0 increment with #data per pixel
+    {
+      leds[led_index].r = dec_data[3 + led_index*dec_data[2]];                    // actual data starts at 3th byte
+      leds[led_index].g = dec_data[3 + led_index*dec_data[2] + 1];
+      leds[led_index].b = dec_data[3 + led_index*dec_data[2] + 2];   
+
+      Serial.print("[NATS] RGB Pixel: ");
+      Serial.print(led_index);
+      Serial.print(" R: ");
+      Serial.print(leds[led_index].r);
+      Serial.print(" G: ");
+      Serial.print(leds[led_index].g);
+      Serial.print(" B: ");
+      Serial.println(leds[led_index].b);
+    }
+    Serial.print("[NATS] RGB Pixel Data Copied Over!");
     nats.publish(msg.reply, "+OK");  
   }
   else
   {
     Serial.println("[NATS] not in a RGB mode, leaving");
 
+    nats.publish(msg.reply, "NOK");   // Not in the right mode
+  }
+}
+
+// This is the FX callback routine
+/*
+Base64 encoded message = 
+First Byte = FX selection
+Second Byte = FX Speed
+Third Byte = FX Crossfade
+4Th Byte = FGND R
+5Th = FGND G
+6TH = FGND B
+7TH = BGND R
+8TH = BGND G
+9TH = BGND B
+*/
+void nats_fx_handler(NATS::msg msg) {
+  Serial.println("[NATS] FX Handler");
+
+  if( (nats_mode == MODE_FX_TO_PIXELS_W_IR ) || (nats_mode == MODE_FX_TO_PIXELS_WO_IR) )   // need to add ext mode to this
+  {
+    uint8_t dec_data[msg.size];
+    uint8_t dec_length = decode_base64((unsigned char *) msg.data, dec_data);     // @TODO: check on length!
+
+    fx_select = dec_data[0];
+    fx_speed = dec_data[1];
+    fx_xfade = dec_data[2];
+
+    fx_fgnd_r = dec_data[3];
+    fx_fgnd_g = dec_data[4];
+    fx_fgnd_b = dec_data[5];
+
+    fx_bgnd_r = dec_data[6];
+    fx_bgnd_g = dec_data[7];
+    fx_bgnd_b = dec_data[8];
+    
+    Serial.print("[NATS] Selected FX:");
+    Serial.println(fx_select);
+
+    Serial.print("[NATS] Set Speed:");
+    Serial.println(fx_speed);
+
+    Serial.print("[NATS] Set XFade:");
+    Serial.println(fx_xfade);
+
+    Serial.print("[NATS] FGND R:");
+    Serial.print(fx_fgnd_r);
+    Serial.print(" G: ");
+    Serial.print(fx_fgnd_b);
+    Serial.print(" B: ");
+    Serial.println(fx_fgnd_b);
+
+    Serial.print("[NATS] BGND R:");
+    Serial.print(fx_bgnd_r);
+    Serial.print(" G: ");
+    Serial.print(fx_bgnd_b);
+    Serial.print(" B: ");
+    Serial.println(fx_bgnd_b);
+
+
+    EEPROM.write(FX_SELECT, fx_select);
+    EEPROM.write(FX_SPEED, fx_speed);
+    EEPROM.write(FX_XFADE, fx_xfade);
+
+    EEPROM.write(FX_FGND_R, fx_fgnd_r);
+    EEPROM.write(FX_FGND_G, fx_fgnd_g);
+    EEPROM.write(FX_FGND_B, fx_fgnd_b);
+
+    EEPROM.write(FX_BGND_R, fx_bgnd_r);
+    EEPROM.write(FX_BGND_G, fx_bgnd_g);
+    EEPROM.write(FX_BGND_B, fx_bgnd_b);
+
+    EEPROM.commit();
+  }
+  else
+  {
+    Serial.println("[NATS] not in a FX mode, leaving");
     nats.publish(msg.reply, "NOK");   // Not in the right mode
   }
 }
