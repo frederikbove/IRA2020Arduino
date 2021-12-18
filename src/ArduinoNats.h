@@ -60,6 +60,22 @@ namespace NATSUtil {
 		}
 	};
 
+	// Class to hold the INFO data from the server
+	class NATSServer {
+		public:
+			const char* server_id;		
+			const char* server_name;
+			const char* server_version;
+			int		proto;
+			const char* go_version;
+			const char* server_host;
+			int 	port;
+			bool	headers;
+			long	max_payload;
+			int 	client_id;
+			const char* client_ip;
+	};
+
 	template <typename T>
 	class Array {
 		private:
@@ -443,9 +459,11 @@ class NATS {
 					(unsigned long)strlen(msg));
 			send((msg == NULL)? "" : msg);
 		}
+
 		void publish(const char* subject, const bool msg) {
 			publish(subject, (msg)? "true" : "false");
 		}
+
 		void publish_fmt(const char* subject, const char* fmt, ...) {
 			va_list args;
 			va_start(args, fmt);
@@ -455,6 +473,7 @@ class NATS {
 			publish(subject, buf);
 			free(buf);
 		}
+		
 		void publishf(const char* subject, const char* fmt, ...) {
 			va_list args;
 			va_start(args, fmt);
