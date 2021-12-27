@@ -13,12 +13,13 @@
 
 #include "base64.hpp"
 
+// GPIO PIN DEFINITION
 #define DEBUG_LED 	15
 
 #define IR_PIN      5
 
-#define DMX_TX      17
-#define DMX_RX      16
+#define DMX_TX      13
+#define DMX_RX      23
 #define DMX_TEN     19
 #define DMX_REN     18
 
@@ -31,7 +32,7 @@
 #define MODE4		    39
 
 //#define NATS_SERVER "demo.nats.io"
-#define NATS_SERVER     "192.168.20.79"
+#define NATS_SERVER     "192.168.20.79" // MacBook Pro
 #define NATS_ROOT_TOPIC "area3001"
 #define MAX_PIXELS      120
 
@@ -264,6 +265,9 @@ bool parse_server(const char* msg) {
 }
 
 void nats_print_server_info() {
+  Serial.print("[SYS] nats_print_server_info() running on core ");
+  Serial.println(xPortGetCoreID());
+
   Serial.println("[NATS] Server INFO: ");
   Serial.print("[NATS] Server ID: ");
   Serial.println(server.server_id);
@@ -441,6 +445,9 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE);
   eeprom_restate();             // read all values back from EEPROM upon startup
 
+  Serial.print("[SYS] setup() running on core ");
+  Serial.println(xPortGetCoreID());
+
   /// IO
   configure_IO();
   Serial.println("[IO] set debug led on");
@@ -464,20 +471,27 @@ void setup() {
   Serial.println("[PIX] Setting up pixeltape");
   FastLED.addLeds<NEOPIXEL, PIXEL_DATA>(leds, pixel_length);
 
+  /*
   for(int i = 0; i < pixel_length; i++) {   
     leds[i] = CRGB::White;
     FastLED.show();
     //delay(500);
-    FastLED.delay(100);
+    FastLED.delay(50);
     leds[i] = CRGB::Black;
     FastLED.show();
   }
+  */
 
   /// DMX
   Serial.println("[DMX] Setting up DMX");
   DMX::Initialize(output, true);      // Output & Double Pins
+  /*
   Serial.println("[DMX] Test CH1");
   DMX::Write(1, 255);
+  //DMX::Write(2, 255);
+  //DMX::Write(3, 255);
+  //DMX::Write(4, 255);
+  */
 
   /// NATS
   Serial.print("[NATS] connecting to nats ...");
@@ -521,13 +535,27 @@ void loop() {
   }
 
 	nats.process();
-  //nats.publish("area3001.blink", "ping");
   yield();
 
   /// CHECK FOR IR DATA
    if (irrecv.decode(&results)) {
+    Serial.print("[IR] in Basic:");
+    Serial.println(resultToHumanReadableBasic(&results));
+ 
+    Serial.print("[IR] in SC:");
+    Serial.println(resultToSourceCode(&results));
+
+    Serial.print("[IR] parsed:");
     serialPrintUint64(results.value, HEX);
-    Serial.println("");
+    Serial.print(" ");
+
+    Serial.print(results.address, HEX);
+    Serial.print(" ");
+
+    Serial.print(results.command, HEX);
+    Serial.println(" ");
+
+    // Need to add type, repeat, ...
 
     // @TODO: send this out on a NATS topic "ROOT_TOPIC + MAC + .ir"
 

@@ -15,6 +15,13 @@ void nats_publish_ext_mode(uint mode)
   nats.publish(ext_mode_topic.c_str(), String(mode, DEC).c_str());
 }
 
+void nats_publish_ir(uint64_t value, uint32_t address, uint32_t command)
+{
+  String ir_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".ir");
+
+  //@TODO continue here
+}
+
 void nats_ping_handler(NATS::msg msg) {
     Serial.println("[NATS] ping message received");
 
@@ -70,7 +77,10 @@ void nats_reset_handler(NATS::msg msg) {
   }
 }
 
-// This receives a complete DMX Frame of 512+1 bytes (allow SC to be set), 513 bytes are Base64 encoded
+/* 
+This receives a complete DMX Frame of 512+1 bytes (allow SC to be set), 513 bytes are Base64 encoded
+Currently the start code isn't used
+*/
 void nats_dmx_frame_handler(NATS::msg msg) {
   Serial.println("[NATS] DMX Frame Handler");
 
@@ -78,10 +88,37 @@ void nats_dmx_frame_handler(NATS::msg msg) {
   {
     Serial.print("[NATS] Message Data: ");
     Serial.println(msg.data);
+
+    uint8_t dec_data[msg.size];
+    uint16_t dec_length = decode_base64((unsigned char *) msg.data, dec_data);  // hopefully length = 513, if not we just overwrite the first section
+
+    Serial.print("[NATS] Decoded Message Length: ");
+    Serial.println(dec_length);
+
+    if(dec_length > 513)
+    {
+      Serial.print("[NATS] Got too many bytes!");
+      nats.publish(msg.reply, "NOK");   // Not in the right mode
+    }
+    else
+    {
+      Serial.print("[NATS] Decoded Message Data: ");
+      for(int i = 0; i<dec_length; i++)
+      {
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.print(dec_data[i],HEX);
+        Serial.print(" ");
+
+        DMX::Write(i, dec_data[i]);     // Let's write it away
+      }
+      Serial.println(" ");
+    }
   }
   else
   {
     Serial.println("[NATS] not in a DMX mode, leaving");
+    nats.publish(msg.reply, "NOK");   // Not in the right mode
   }
 }
 
@@ -100,13 +137,13 @@ void nats_dmx_delta_frame_handler(NATS::msg msg) {
   }
 }
 
-/* ik dacht bericht als base64 door te sturen met hetvolgende:
+/* This routine is the NATS RGB data parser
 2 bytes length
 1 byte: #data per pixel
 datablock: <length> * <#data> * <pixels>
 bv: 0x00 0x02 0x03 0xRR 0xGG 0xBB 0xRR 0xGG 0xBB
-voor 2 pixels met RGB (3data per pixel)
-zodat we bv ook later RGBW or RGBA kunnen doorsturen
+for 2 pixels with RGB (3data per pixel)
+this way we can send RGBA or RGBW pixels in a later phase
 */
 void nats_rgb_frame_handler(NATS::msg msg) {
   Serial.println("[NATS] RGB Frame Handler");
@@ -142,7 +179,7 @@ void nats_rgb_frame_handler(NATS::msg msg) {
     }
 
     Serial.print("[NATS] RGB Per Pixel Datapoints: ");
-    Serial.println(dec_data[2]);
+    Serial.println(dec_data[2]);                            // @TODO: This needs to be checked & used!, currently A and W are ditched
 
     for(int led_index = 0; led_index < pix_len; led_index++) // from 0 increment with #data per pixel
     {
@@ -170,8 +207,7 @@ void nats_rgb_frame_handler(NATS::msg msg) {
   }
 }
 
-// This is the FX callback routine
-/*
+/* This is the FX callback routine
 Base64 encoded message = 
 First Byte = FX selection
 Second Byte = FX Speed
@@ -226,7 +262,6 @@ void nats_fx_handler(NATS::msg msg) {
     Serial.print(" B: ");
     Serial.println(fx_bgnd_b);
 
-
     EEPROM.write(FX_SELECT, fx_select);
     EEPROM.write(FX_SPEED, fx_speed);
     EEPROM.write(FX_XFADE, fx_xfade);
@@ -240,6 +275,8 @@ void nats_fx_handler(NATS::msg msg) {
     EEPROM.write(FX_BGND_B, fx_bgnd_b);
 
     EEPROM.commit();
+
+    nats.publish(msg.reply, "+OK");   // Not in the right mode
   }
   else
   {

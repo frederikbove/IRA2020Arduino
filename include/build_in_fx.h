@@ -10,6 +10,7 @@
 // MORE FX TO DO: 
 // https://www.tweaking4all.nl/hardware/arduino/adruino-led-strip-effecten/#LEDStripEffectMeteorRegen
 // https://www.tweaking4all.nl/hardware/arduino/adruino-led-strip-effecten/
+// https://github.com/RMProjectsUK/LEDFireEffectLampMatrix
 
 int    current_fx_pixel = 0;
 int    prev_fx_pixel    = -1;
