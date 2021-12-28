@@ -24,20 +24,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #    endif()
 #endif()
 
-find_package(Qt5 COMPONENTS Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Widgets Gui Network REQUIRED)
 
 if(ANDROID)
   add_library(NATS_Gen SHARED
     main.cpp
     mainwindow.cpp
     mainwindow.h
+    natsclient.h
+    ira2020.h
   )
 else()
   add_executable(NATS_Gen
     main.cpp
     mainwindow.cpp
     mainwindow.h
+    natsclient.h
+    ira2020.h
   )
 endif()
 
 target_link_libraries(NATS_Gen PRIVATE Qt5::Widgets)
+target_link_libraries(NATS_Gen PRIVATE Qt5::Network)
+
