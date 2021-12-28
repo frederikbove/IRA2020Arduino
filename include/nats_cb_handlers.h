@@ -2,9 +2,14 @@
 // This is the IRA2020 specific heartbeat signal to announce a device, more then the NATS Ping/Pong it defines the device specific topic roots
 void nats_announce()
 {
-  String announce_message = String("{\"mac_string\": \"") + mac_string + String("\","); // Add MAC
-  announce_message += String("\"IP\":\"") + String(WiFi.localIP()) + String("\"}");
-
+  String announce_message = String("{\"mac_string\": \"") + mac_string + String("\",");   // Add MAC
+  announce_message += String("\"IP\":\"") + String(WiFi.localIP()) + String("\",");       // Add IP
+  announce_message += String("\"HWTYPE\":\"") + String("IRA2020") + String("\",");        // Add HW TYPE
+  announce_message += String("\"HWREV\":\"") + String("Rev.00") + String("\",");          // Add HW board Rev
+  announce_message += String("\"EXTMODE\":\"") + String(ext_mode) + String("\",");
+  announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\"}");
+  // TODO: Add everything in EEPROM,  ...
+  
   String announce_topic = String(NATS_ROOT_TOPIC) + String(".announce");
   nats.publish(announce_topic.c_str(), announce_message.c_str());
 }
