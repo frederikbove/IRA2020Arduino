@@ -32,7 +32,7 @@
 #define MODE4		    39
 
 //#define NATS_SERVER "demo.nats.io"
-#define NATS_SERVER     "192.168.20.79" // MacBook Pro
+#define NATS_SERVER     "51.15.194.130" // NATS Server Daan
 #define NATS_ROOT_TOPIC "area3001"
 #define MAX_PIXELS      120
 
