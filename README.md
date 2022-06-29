@@ -35,4 +35,4 @@ SOME FX Strings
 
 ENCODING WEBSITE: https://base64.guru/converter/encode/hex
 
-
+https://lastminuteengineers.com/esp32-ota-web-updater-arduino-ide/
