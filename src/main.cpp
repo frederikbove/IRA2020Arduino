@@ -332,6 +332,10 @@ void nats_on_connect(const char* msg) {
   Serial.println(nats_reset_topic);
   nats.subscribe(nats_reset_topic.c_str(), nats_reset_handler);
 
+  String nats_config_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".config");
+  Serial.print("[NATS] Subscribing: ");
+  Serial.println(nats_config_topic);
+  nats.subscribe(nats_config_topic.c_str(), nats_config_handler);
 
   //@TODO the following only need to subscribe upon mode change!
 
@@ -434,6 +438,15 @@ void base64test()
 }
 */ 
 
+void setup_eeprom() {
+    EEPROM.write(EEPROM_MAJ_VERSION, 1);
+    EEPROM.write(EEPROM_MINOR_VERION, 2);
+    EEPROM.write(PIXEL_LENGTH, 10);
+    EEPROM.write(HW_BOARD_VERSION, 1);
+    EEPROM.write(HW_BOARD_SERIAL_NR, 2);
+    EEPROM.commit();
+}
+
 void setup() {
 
   /// SERIAL PORT
@@ -465,13 +478,12 @@ void setup() {
   /// WIFI
   connect_wifi();
 
-  pixel_length = 120;
+  pixel_length = 10;
 
   /// FASTLED                                                 // @TODO This init should take place here, it should happen after a mode is chosen
   Serial.println("[PIX] Setting up pixeltape");
   FastLED.addLeds<NEOPIXEL, PIXEL_DATA>(leds, pixel_length);
 
-  /*
   for(int i = 0; i < pixel_length; i++) {   
     leds[i] = CRGB::White;
     FastLED.show();
@@ -480,18 +492,19 @@ void setup() {
     leds[i] = CRGB::Black;
     FastLED.show();
   }
-  */
 
   /// DMX
   Serial.println("[DMX] Setting up DMX");
   DMX::Initialize(output, true);      // Output & Double Pins
-  /*
+  
   Serial.println("[DMX] Test CH1");
   DMX::Write(1, 255);
-  //DMX::Write(2, 255);
-  //DMX::Write(3, 255);
-  //DMX::Write(4, 255);
-  */
+  delay(500);
+  DMX::Write(2, 255);
+  delay(500);
+  DMX::Write(3, 255);
+  delay(500);
+  DMX::Write(4, 255);
 
   /// NATS
   Serial.print("[NATS] connecting to nats ...");

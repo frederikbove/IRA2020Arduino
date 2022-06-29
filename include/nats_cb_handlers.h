@@ -5,7 +5,7 @@ void nats_announce()
   String announce_message = String("{\"mac_string\": \"") + mac_string + String("\",");   // Add MAC
   announce_message += String("\"IP\":\"") + String(WiFi.localIP()) + String("\",");       // Add IP
   announce_message += String("\"HWTYPE\":\"") + String("IRA2020") + String("\",");        // Add HW TYPE
-  announce_message += String("\"HWREV\":\"") + String("Rev.00") + String("\",");          // Add HW board Rev
+  announce_message += String("\"HWREV\":\"") + String("Rev.01") + String("\",");          // Add HW board Rev
   announce_message += String("\"EXTMODE\":\"") + String(ext_mode) + String("\",");
   announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\"}");
   // TODO: Add everything in EEPROM,  ...
@@ -82,6 +82,43 @@ void nats_reset_handler(NATS::msg msg) {
   }
 }
 
+/* Accepts 3 bytes
+2 bytes: parameter index
+1 byte: parameter value
+*/
+void nats_config_handler(NATS::msg msg) {
+  Serial.println("[NATS] Config Handler");
+
+  Serial.print("[NATS] Message Data: ");
+  Serial.println(msg.data);
+
+  uint8_t dec_data[msg.size];
+  uint8_t dec_length = decode_base64((unsigned char *) msg.data, dec_data);
+
+  Serial.print("[NATS] Decoded Message Length: ");
+  Serial.println(dec_length);
+
+  Serial.print("[NATS] Decoded Message Data: ");
+  for(int i = 0; i<dec_length; i++)
+  {
+    Serial.print(dec_data[i],HEX);
+    Serial.print(" ");
+  }
+  Serial.println(" ");
+
+  uint16_t param_index = (dec_data[0] << 8) + dec_data[1];
+  Serial.print("[NATS] Parameter Index: ");
+  Serial.println(param_index);
+
+  Serial.print("[NATS] Parameter Value: ");
+  Serial.println(dec_data[2]);
+  
+  EEPROM.write(param_index, dec_data[2]);
+  EEPROM.commit();
+
+  nats.publish(msg.reply, "+OK"); 
+}
+
 /* 
 This receives a complete DMX Frame of 512+1 bytes (allow SC to be set), 513 bytes are Base64 encoded
 Currently the start code isn't used
@@ -143,6 +180,84 @@ void nats_dmx_delta_frame_handler(NATS::msg msg) {
 }
 
 /* This routine is the NATS RGB data parser
+2 bytes offset
+2 byte: length
+datablock: <length> * <#data> * <pixels>
+#data comes from EEPROM memory
+bv: 0x00 0x02 0x00 0x02 0xRR 0xGG 0xBB 0xRR 0xGG 0xBB
+for 2 pixels with RGB (3data per pixel) with offset 2
+this way we can send RGBA or RGBW pixels in a later phase
+*/
+void nats_rgb_frame_handler(NATS::msg msg) {
+  Serial.println("[NATS] RGB Frame Handler");
+
+  if( (nats_mode == MODE_RGB_TO_PIXELS_W_IR ) || (nats_mode == MODE_RGB_TO_PIXELS_WO_IR) )   // need to add ext mode to this
+  {
+    Serial.print("[NATS] Message Data: ");
+    Serial.println(msg.data);
+
+    uint8_t dec_data[msg.size];
+    uint8_t dec_length = decode_base64((unsigned char *) msg.data, dec_data);
+
+    Serial.print("[NATS] Decoded Message Length: ");
+    Serial.println(dec_length);
+
+    Serial.print("[NATS] Decoded Message Data: ");
+    for(int i = 0; i<dec_length; i++)
+    {
+      Serial.print(dec_data[i],HEX);
+      Serial.print(" ");
+    }
+    Serial.println(" ");
+
+    uint16_t pix_offset = (dec_data[0] << 8) + dec_data[1];
+    Serial.print("[NATS] RGB Pixel Data Offset: ");
+    Serial.println(pix_offset);
+    
+    uint16_t pix_len = (dec_data[2] << 8) + dec_data[3];
+    Serial.print("[NATS] RGB Per Pixel Datapoints: ");
+    Serial.println(pix_len);                            // @TODO: This needs to be checked & used!, currently A and W are ditched
+
+    if(pix_len > MAX_PIXELS)
+    {
+      Serial.println("[NATS] Too many pixels");
+      nats.publish(msg.reply, "NOK");   // Not in the right mode
+      return;
+    }
+
+    if(pix_len == 0)
+    {
+      Serial.println("[NATS] Length is 0");
+      //nats.publish(msg.reply, "NOK");   // Not ok
+      return;
+    }
+
+    for(int led_index = 0; led_index < pix_len; led_index++) // from 0 increment with #data per pixel
+    {
+      leds[led_index+pix_offset].r = dec_data[4 + led_index*dec_data[2]];                    // actual data starts at 4th byte
+      leds[led_index+pix_offset].g = dec_data[4 + led_index*dec_data[2] + 1];
+      leds[led_index+pix_offset].b = dec_data[4 + led_index*dec_data[2] + 2];   
+
+      Serial.print("[NATS] RGB Pixel: ");
+      Serial.print(led_index);
+      Serial.print(" R: ");
+      Serial.print(leds[led_index].r);
+      Serial.print(" G: ");
+      Serial.print(leds[led_index].g);
+      Serial.print(" B: ");
+      Serial.println(leds[led_index].b);
+    }
+    Serial.print("[NATS] RGB Pixel Data Copied Over!");
+    nats.publish(msg.reply, "+OK");  
+  }
+  else
+  {
+    Serial.println("[NATS] not in a RGB mode, leaving");
+    nats.publish(msg.reply, "NOK");   // Not in the right mode
+  }
+}
+
+/* This routine is the NATS RGB data parser
 2 bytes length
 1 byte: #data per pixel
 datablock: <length> * <#data> * <pixels>
@@ -150,8 +265,8 @@ bv: 0x00 0x02 0x03 0xRR 0xGG 0xBB 0xRR 0xGG 0xBB
 for 2 pixels with RGB (3data per pixel)
 this way we can send RGBA or RGBW pixels in a later phase
 */
-void nats_rgb_frame_handler(NATS::msg msg) {
-  Serial.println("[NATS] RGB Frame Handler");
+void nats_old_rgb_frame_handler(NATS::msg msg) {
+  Serial.println("[NATS] Old RGB Frame Handler");
 
   if( (nats_mode == MODE_RGB_TO_PIXELS_W_IR ) || (nats_mode == MODE_RGB_TO_PIXELS_WO_IR) )   // need to add ext mode to this
   {
