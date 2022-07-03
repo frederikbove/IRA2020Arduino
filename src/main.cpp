@@ -10,6 +10,7 @@
 #include <esp_dmx.h>
 
 #include <ArduinoJson.h>
+#include <ArduinoOTA.h>
 
 #include "base64.hpp"
 
@@ -447,6 +448,79 @@ void setup_eeprom() {
     EEPROM.commit();
 }
 
+/*
+void OTAhandleSketchDownload() {
+
+  const char* SERVER = "10.2.0.1"; // must be string for HttpClient
+  const unsigned short SERVER_PORT = 80;
+  const char* PATH = "/update-v%d.bin";
+  const unsigned long CHECK_INTERVAL = 5000;
+
+  static unsigned long previousMillis;
+
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis < CHECK_INTERVAL)
+    return;
+  previousMillis = currentMillis;
+
+  WiFiClient transport;                                   // THIS IS AN ISSUE AS ESP32 WIFI doesn't implement the necessary calls
+  // should normally be able to replace this with this example for HTTP: https://randomnerdtutorials.com/esp32-http-get-post-arduino/
+  HttpClient client(transport, SERVER, SERVER_PORT);
+
+  char buff[32];
+  snprintf(buff, sizeof(buff), PATH, VERSION + 1);
+
+  Serial.print("[OTA] Check for update file ");
+  Serial.println(buff);
+
+  client.get(buff);
+
+  int statusCode = client.responseStatusCode();
+  Serial.print("[OTA] Update status code: ");
+  Serial.println(statusCode);
+  if (statusCode != 200) {
+    client.stop();
+    return;
+  }
+
+  long length = client.contentLength();
+  if (length == HttpClient::kNoContentLengthHeader) {
+    client.stop();
+    Serial.println("Server didn't provide Content-length header. Can't continue with update.");
+    return;
+  }
+  Serial.print("Server returned update file of size ");
+  Serial.print(length);
+  Serial.println(" bytes");
+
+  if (!InternalStorage.open(length)) {
+    client.stop();
+    Serial.println("There is not enough space to store the update. Can't continue with update.");
+    return;
+  }
+  byte b;
+  while (length > 0) {
+    if (!client.readBytes(&b, 1)) // reading a byte with timeout
+      break;
+    InternalStorage.write(b);
+    length--;
+  }
+  InternalStorage.close();
+  client.stop();
+  if (length > 0) {
+    Serial.print("Timeout downloading update file at ");
+    Serial.print(length);
+    Serial.println(" bytes. Can't continue with update.");
+    return;
+  }
+
+  Serial.println("Sketch update apply and reset.");
+  Serial.flush();
+  InternalStorage.apply(); // this doesn't return
+}
+*/
+
 void setup() {
 
   /// SERIAL PORT
@@ -478,6 +552,7 @@ void setup() {
   /// WIFI
   connect_wifi();
 
+  // @TODO remove this hard limit from the code
   pixel_length = 10;
 
   /// FASTLED                                                 // @TODO This init should take place here, it should happen after a mode is chosen
@@ -497,6 +572,7 @@ void setup() {
   Serial.println("[DMX] Setting up DMX");
   DMX::Initialize(output, true);      // Output & Double Pins
   
+  /*
   Serial.println("[DMX] Test CH1");
   DMX::Write(1, 255);
   delay(500);
@@ -505,6 +581,10 @@ void setup() {
   DMX::Write(3, 255);
   delay(500);
   DMX::Write(4, 255);
+  */
+
+  Serial.print("[OTA] starting OTA service  ...");
+  ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "FlyingPigs789*", InternalStorage);
 
   /// NATS
   Serial.print("[NATS] connecting to nats ...");
@@ -551,7 +631,7 @@ void loop() {
   yield();
 
   /// CHECK FOR IR DATA
-   if (irrecv.decode(&results)) {
+  if (irrecv.decode(&results)) {
     Serial.print("[IR] in Basic:");
     Serial.println(resultToHumanReadableBasic(&results));
  
@@ -585,4 +665,10 @@ void loop() {
     process_build_in_fx();
     FastLED.show();
   }
+
+  // check for WiFi OTA updates
+  ArduinoOTA.poll();
+
+  // send all status info
+  nats_publish_status();
 }

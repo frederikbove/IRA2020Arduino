@@ -14,6 +14,15 @@ void nats_announce()
   nats.publish(announce_topic.c_str(), announce_message.c_str());
 }
 
+void nats_publish_status ()
+{
+  String status_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".status");
+  long rssi = WiFi.RSSI();
+  String status_message = String("{\"rssi\": \"") + String(rssi) + String("\"}");
+
+  nats.publish(status_topic.c_str(), status_message.c_str());
+}
+
 void nats_publish_ext_mode(uint mode)
 {
   String ext_mode_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".ext_mode");
