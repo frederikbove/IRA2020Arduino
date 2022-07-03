@@ -230,14 +230,14 @@ void nats_rgb_frame_handler(NATS::msg msg) {
     if(pix_len > MAX_PIXELS)
     {
       Serial.println("[NATS] Too many pixels");
-      nats.publish(msg.reply, "NOK");   // Not in the right mode
+      nats.publish(msg.reply, "NOK, Too many pixels");   // Not in the right mode
       return;
     }
 
     if(pix_len == 0)
     {
       Serial.println("[NATS] Length is 0");
-      //nats.publish(msg.reply, "NOK");   // Not ok
+      nats.publish(msg.reply, "NOK, Length is 0");   // Not ok
       return;
     }
 
@@ -263,7 +263,7 @@ void nats_rgb_frame_handler(NATS::msg msg) {
   else
   {
     Serial.println("[NATS] not in a RGB mode, leaving");
-    nats.publish(msg.reply, "NOK");   // Not in the right mode
+    nats.publish(msg.reply, "NOK, not in a RGB mode");   // Not in the right mode
   }
 }
 
@@ -412,5 +412,45 @@ void nats_fx_handler(NATS::msg msg) {
   {
     Serial.println("[NATS] not in a FX mode, leaving");
     nats.publish(msg.reply, "NOK");   // Not in the right mode
+  }
+}
+
+/* This is the name callback routine
+max 32 byte name message, ascii encoded
+*/
+void nats_name_handler(NATS::msg msg) {
+  
+  Serial.println("[NATS] Name Handler");
+
+  if(msg.size > 32)
+  {
+    Serial.println("[NATS] Name too long, ignoring");
+    nats.publish(msg.reply, "NOK");
+  }
+  else if(msg.size == 0)
+  {
+    String name;
+    // send the name back
+    for(uint i = 0; i < dev_name_length; i++)
+    {
+      name += String(EEPROM.read(DEV_NAME + i));
+    }
+    String nats_name_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".name");
+    nats.publish(nats_name_topic.c_str(), name.c_str());
+  }
+  else
+  {
+    EEPROM.write(DEV_NAME_LENGTH, msg.size);
+    dev_name_length = msg.size;
+
+    // set the name
+    Serial.print("[NATS] Name: ");
+    for(uint c = 0; c < msg.size; c++)
+    {
+      Serial.print(c);
+      EEPROM.write(DEV_NAME+c, msg.data[c]);
+    }
+    EEPROM.commit();
+    nats.publish(msg.reply, "+OK");
   }
 }

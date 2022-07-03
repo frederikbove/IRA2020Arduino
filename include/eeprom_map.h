@@ -19,8 +19,11 @@
 #define HW_BOARD_VERSION    14      // 00 is original, 01 is first production batch
 #define HW_BOARD_SERIAL_NR  15      // The board sequence nr
 
+#define DEV_NAME_LENGTH     16
+#define DEV_NAME            17      // 32 bytes long max
+
 /// EEPROM SIZE
-#define EEPROM_SIZE         14    // the number of bytes we want to read/store
+#define EEPROM_SIZE         49    // the number of bytes we want to read/store
 
 uint8_t eeprom_maj;
 uint8_t eeprom_min;
@@ -43,6 +46,8 @@ uint8_t fx_bgnd_b;
 uint8_t board_version;
 uint8_t board_serial_nr;
 
+uint8_t dev_name_length;
+
 void eeprom_restate ()
 {
     eeprom_maj = EEPROM.read(EEPROM_MAJ_VERSION);       // 1
@@ -63,4 +68,6 @@ void eeprom_restate ()
 
     board_version = EEPROM.read(HW_BOARD_VERSION);      // 14
     board_serial_nr = EEPROM.read(HW_BOARD_SERIAL_NR);  // 15
+
+    dev_name_length = EEPROM.read(DEV_NAME_LENGTH);
 }
