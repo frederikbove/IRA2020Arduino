@@ -185,6 +185,7 @@ void nats_dmx_delta_frame_handler(NATS::msg msg) {
   else
   {
     Serial.println("[NATS] not in a DMX mode, leaving");
+    nats.publish(msg.reply, "NOK, Not in DMX mode");
   }
 }
 
@@ -304,7 +305,7 @@ void nats_old_rgb_frame_handler(NATS::msg msg) {
     if(pix_len > MAX_PIXELS)
     {
       Serial.println("[NATS] Too many pixels");
-      nats.publish(msg.reply, "NOK");   // Not in the right mode
+      nats.publish(msg.reply, "NOK, Too many pixels");   // Not in the right mode
       return;
     }
 
@@ -333,7 +334,7 @@ void nats_old_rgb_frame_handler(NATS::msg msg) {
   {
     Serial.println("[NATS] not in a RGB mode, leaving");
 
-    nats.publish(msg.reply, "NOK");   // Not in the right mode
+    nats.publish(msg.reply, "NOK, not in RGB mode");   // Not in the right mode
   }
 }
 
@@ -411,7 +412,7 @@ void nats_fx_handler(NATS::msg msg) {
   else
   {
     Serial.println("[NATS] not in a FX mode, leaving");
-    nats.publish(msg.reply, "NOK");   // Not in the right mode
+    nats.publish(msg.reply, "NOK, not in FX mode");   // Not in the right mode
   }
 }
 
@@ -425,7 +426,7 @@ void nats_name_handler(NATS::msg msg) {
   if(msg.size > 32)
   {
     Serial.println("[NATS] Name too long, ignoring");
-    nats.publish(msg.reply, "NOK");
+    nats.publish(msg.reply, "NOK, Name too long");
   }
   else if(msg.size == 0)
   {
