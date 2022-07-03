@@ -243,17 +243,18 @@ void nats_rgb_frame_handler(NATS::msg msg) {
 
     for(int led_index = 0; led_index < pix_len; led_index++) // from 0 increment with #data per pixel
     {
-      leds[led_index+pix_offset].r = dec_data[4 + led_index*dec_data[2]];                    // actual data starts at 4th byte
-      leds[led_index+pix_offset].g = dec_data[4 + led_index*dec_data[2] + 1];
-      leds[led_index+pix_offset].b = dec_data[4 + led_index*dec_data[2] + 2];   
+      uint pixel = led_index + pix_offset;
+      leds[pixel].r = dec_data[4 + (led_index*3)];                    // actual data starts at 4th byte
+      leds[pixel].g = dec_data[4 + (led_index*3) + 1];
+      leds[pixel].b = dec_data[4 + (led_index*3) + 2];   
 
       Serial.print("[NATS] RGB Pixel: ");
       Serial.print(led_index);
-      Serial.print(" R: ");
+      Serial.print(", R:");
       Serial.print(leds[led_index].r);
-      Serial.print(" G: ");
+      Serial.print(" G:");
       Serial.print(leds[led_index].g);
-      Serial.print(" B: ");
+      Serial.print(" B:");
       Serial.println(leds[led_index].b);
     }
     Serial.print("[NATS] RGB Pixel Data Copied Over!");
