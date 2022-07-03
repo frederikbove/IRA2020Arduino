@@ -36,3 +36,8 @@ SOME FX Strings
 ENCODING WEBSITE: https://base64.guru/converter/encode/hex
 
 https://lastminuteengineers.com/esp32-ota-web-updater-arduino-ide/
+
+
+TODO:
+* NAME NATS CB + EEPROM SPACE + FIXED length 32 bytes
+* use header config to determine to which server to connect
