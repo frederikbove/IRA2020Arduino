@@ -7,9 +7,17 @@ void nats_announce()
   announce_message += String("\"HWTYPE\":\"") + String("IRA2020") + String("\",");        // Add HW TYPE
   announce_message += String("\"HWREV\":\"") + String("Rev.01") + String("\",");          // Add HW board Rev
   announce_message += String("\"EXTMODE\":\"") + String(ext_mode) + String("\",");
-  announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\"}");
-  // TODO: Add everything in EEPROM,  ...
+  announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\",");
   
+  String name;
+  // send the name back
+  for(uint i = 0; i < dev_name_length; i++)
+  {
+    name += String(EEPROM.read(DEV_NAME + i));
+  }
+  announce_message += String("\"NAME\":\"") + name + String("\"}");
+
+  // TODO: Add everything in EEPROM,  ...
   String announce_topic = String(NATS_ROOT_TOPIC) + String(".announce");
   nats.publish(announce_topic.c_str(), announce_message.c_str());
 }
@@ -33,7 +41,17 @@ void nats_publish_ir(uint64_t value, uint32_t address, uint32_t command)
 {
   String ir_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".ir");
 
-  //@TODO continue here
+  uint32_t value_high, value_low;
+
+  value_high = ((uint32_t *) &value)[0];
+  value_low = ((uint32_t *) &value)[1];
+
+  String ir_message = String("{\"value_high\": \"") + String(value_high) + String("\",");
+  ir_message += String("{\"value_low\": \"") + String(value_low) + String("\",");  
+  ir_message += String("\"address\":\"") + String(address) + String("\",");    
+  ir_message += String("\"command\":\"") + String(command) + String("\"}");
+
+  nats.publish(ir_topic.c_str(), ir_message.c_str());
 }
 
 void nats_ping_handler(NATS::msg msg) {

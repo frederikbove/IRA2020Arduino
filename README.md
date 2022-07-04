@@ -39,5 +39,9 @@ https://lastminuteengineers.com/esp32-ota-web-updater-arduino-ide/
 
 
 TODO:
-* NAME NATS CB + EEPROM SPACE + FIXED length 32 bytes
+* NAME NATS CB + EEPROM SPACE + FIXED length 32 bytes               > done
 * use header config to determine to which server to connect
+* implement emergency light                                         > done
+* make sure we send full error message back and not NOK             > done
+* put name in announce message                                      > done
+* send IR on a topic                                                > done

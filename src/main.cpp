@@ -54,6 +54,7 @@ NATS nats(
 IRrecv irrecv(IR_PIN);
 decode_results results;
 NATSUtil::NATSServer server;
+DMX dmx;
 
 CRGB leds[MAX_PIXELS];
 
@@ -360,6 +361,11 @@ void nats_on_connect(const char* msg) {
   Serial.println(nats_fx_topic);
   nats.subscribe(nats_fx_topic.c_str(), nats_fx_handler);
 
+  String nats_name_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".name");
+  Serial.print("[NATS] Subscribing: ");
+  Serial.println(nats_name_topic);
+  nats.subscribe(nats_name_topic.c_str(), nats_name_handler);
+
   nats_announce();
 }
 
@@ -441,7 +447,7 @@ void base64test()
 
 void setup_eeprom() {
     EEPROM.write(EEPROM_MAJ_VERSION, 1);
-    EEPROM.write(EEPROM_MINOR_VERION, 2);
+    EEPROM.write(EEPROM_MINOR_VERION, 3);
     EEPROM.write(PIXEL_LENGTH, 10);
     EEPROM.write(HW_BOARD_VERSION, 1);
     EEPROM.write(HW_BOARD_SERIAL_NR, 2);
@@ -521,6 +527,23 @@ void OTAhandleSketchDownload() {
 }
 */
 
+void led_to_white() {
+  for(uint i = 0; i < pixel_length; i++)
+  {
+    leds[i].r = 255;                    
+    leds[i].g = 255;
+    leds[i].b = 255;
+  }  
+}
+
+// This is purely based on the assumption that RGB pars etc show white when all channels are at full (often the case)
+void dmx_to_full() {
+  for(uint i = 1; i < 513; i++)
+  {
+    dmx.Write(i, 255);
+  }
+}
+
 void setup() {
 
   /// SERIAL PORT
@@ -570,7 +593,7 @@ void setup() {
 
   /// DMX
   Serial.println("[DMX] Setting up DMX");
-  DMX::Initialize(output, true);      // Output & Double Pins
+  dmx.Initialize(output, true);      // Output & Double Pins
   
   /*
   Serial.println("[DMX] Test CH1");
@@ -651,19 +674,38 @@ void loop() {
     // Need to add type, repeat, ...
 
     // @TODO: send this out on a NATS topic "ROOT_TOPIC + MAC + .ir"
+    nats_publish_ir(results.value, results.address, results.command);
 
     irrecv.resume();  // Receive the next value
   }
 
-  // @TODO THESE IF's NEED TO BECOME A SWITCH STATEMENT
-  if( (nats_mode == MODE_RGB_TO_PIXELS_W_IR ) || (nats_mode == MODE_RGB_TO_PIXELS_WO_IR) )   
+  switch (nats_mode)
   {
+  case MODE_RGB_TO_PIXELS_W_IR:
+  case MODE_RGB_TO_PIXELS_WO_IR:
     FastLED.show();
-  } 
-  if( (nats_mode == MODE_FX_TO_PIXELS_W_IR ) || (nats_mode == MODE_FX_TO_PIXELS_WO_IR) )   
-  {
+    break;
+  
+  case MODE_FX_TO_PIXELS_W_IR:
+  case MODE_FX_TO_PIXELS_WO_IR:
     process_build_in_fx();
     FastLED.show();
+    break;
+
+  case MODE_WHITE_PIXELS:
+    led_to_white();
+    dmx_to_full();        // only when previous mode was DMX OUT
+    FastLED.show();
+    break;
+
+  case MODE_DMX_IN:   // @TODO, switch to in
+    break;
+
+  case MODE_DMX_OUT:  // @TODO, switch to out
+    break;
+
+  default:
+    break;
   }
 
   // check for WiFi OTA updates
