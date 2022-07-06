@@ -87,3 +87,32 @@ IRDataPacket IRcalculateCRC(IRDataPacket packet)
 
   return packet;
 }
+
+bool IRvalidate_crc(uint16_t packet)
+{
+  bool crc[] = {0, 0, 0, 0};
+  // makes computing the checksum a litle bit faster
+  bool d0 = bitRead(packet, 0);
+  bool d1 = bitRead(packet, 1);
+  bool d2 = bitRead(packet, 2);
+  bool d3 = bitRead(packet, 3);
+  bool d4 = bitRead(packet, 4);
+  bool d5 = bitRead(packet, 5);
+  bool d6 = bitRead(packet, 6);
+  bool d7 = bitRead(packet, 7);
+  bool d8 = bitRead(packet, 8);
+  bool d9 = bitRead(packet, 9);
+  bool d10 = bitRead(packet, 10);
+  bool d11 = bitRead(packet, 11);
+
+  crc[0] = d11 ^ d10 ^ d9 ^ d8 ^ d6 ^ d4 ^ d3 ^ d0 ^ 0;
+  crc[1] = d8 ^ d7 ^ d6 ^ d5 ^ d3 ^ d1 ^ d0 ^ 1;
+  crc[2] = d9 ^ d8 ^ d7 ^ d6 ^ d4 ^ d2 ^ d1 ^ 1;
+  crc[3] = d10 ^ d9 ^ d8 ^ d7 ^ d5 ^ d3 ^ d2 ^ 0;
+
+  bitWrite(packet, 12, crc[0] ^ bitRead(packet, 12));
+  bitWrite(packet, 13, crc[1] ^ bitRead(packet, 13));
+  bitWrite(packet, 14, crc[2] ^ bitRead(packet, 14));
+  bitWrite(packet, 15, crc[3] ^ bitRead(packet, 15));
+  return ((packet & 0xf000) == 0);
+}

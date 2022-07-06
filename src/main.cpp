@@ -3,6 +3,9 @@
 #include <WiFi.h>
 #include <ArduinoNats.h>
 
+#define _IR_ENABLE_DEFAULT_ false     // test, this might need to move to IRremoteESP8266.h
+#define DECODE_JVC  true
+
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
 #include <IRutils.h>
@@ -655,6 +658,7 @@ void loop() {
 
   /// CHECK FOR IR DATA
   if (irrecv.decode(&results)) {
+    /*
     Serial.print("[IR] in Basic:");
     Serial.println(resultToHumanReadableBasic(&results));
  
@@ -670,12 +674,30 @@ void loop() {
 
     Serial.print(results.command, HEX);
     Serial.println(" ");
+    */
 
-    // Need to add type, repeat, ...
-
-    // @TODO: send this out on a NATS topic "ROOT_TOPIC + MAC + .ir"
-    nats_publish_ir(results.value, results.address, results.command);
-
+    uint16_t packet = (results.command & 0xff);
+    packet <<= 8;
+    packet += results.address & 0xff;
+    Serial.print("Bits: ");
+    Serial.println(packet, BIN);
+    if (IRvalidate_crc(packet)) 
+    {
+      Serial.println("CRC OK");
+      switch (results.address & 0b111) {
+        case 1:
+          Serial.println("REX");
+          break;
+        case 2:
+          Serial.println("GIGGLE");
+          break;
+        case 4:
+          Serial.println("BUZZ");
+          break;
+      }
+      // @TODO: send this out on a NATS topic "ROOT_TOPIC + MAC + .ir"
+      nats_publish_ir(results.value, results.address, results.command);   // TODO replace with actual routine with IRDataPacket
+    }
     irrecv.resume();  // Receive the next value
   }
 
