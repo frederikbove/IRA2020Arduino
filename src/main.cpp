@@ -558,6 +558,13 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE);
   eeprom_restate();             // read all values back from EEPROM upon startup
 
+  if(dev_name_length > 32)    // only for empty platforms
+  {
+    dev_name_length = 32;
+    EEPROM.write(DEV_NAME_LENGTH, dev_name_length);
+    EEPROM.commit();
+  }
+
   Serial.print("[SYS] setup() running on core ");
   Serial.println(xPortGetCoreID());
 

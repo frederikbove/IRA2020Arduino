@@ -13,9 +13,12 @@ void nats_announce()
   // send the name back
   for(uint i = 0; i < dev_name_length; i++)
   {
-    name += String(EEPROM.read(DEV_NAME + i));
+    name += EEPROM.read(DEV_NAME + i); 
   }
   announce_message += String("\"NAME\":\"") + name + String("\"}");
+
+  Serial.print("[NATS] Name in announce: ");
+  Serial.println(name);
 
   // TODO: Add everything in EEPROM,  ...
   String announce_topic = String(NATS_ROOT_TOPIC) + String(".announce");
@@ -451,25 +454,31 @@ void nats_name_handler(NATS::msg msg) {
     Serial.println("[NATS] Name request");
     String name;
     // send the name back
+    /*
     for(uint i = 0; i < dev_name_length; i++)
     {
       name += String(EEPROM.read(DEV_NAME + i));
     }
     String nats_name_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".name");
     nats.publish(nats_name_topic.c_str(), name.c_str());
+    */
   }
   else
   {
-    EEPROM.write(DEV_NAME_LENGTH, msg.size);
     dev_name_length = msg.size;
+    EEPROM.write(DEV_NAME_LENGTH, dev_name_length);
+    Serial.print("[NATS] Name length:");
+    Serial.println(dev_name_length);
 
     // set the name
     Serial.print("[NATS] Name: ");
-    for(uint c = 0; c < msg.size; c++)
+
+    for(uint c = 0; c < dev_name_length; c++)
     {
       Serial.print(msg.data[c]);
       EEPROM.write(DEV_NAME+c, msg.data[c]);
     }
+
     Serial.println(" ");
     EEPROM.commit();
     nats.publish(msg.reply, "+OK");
