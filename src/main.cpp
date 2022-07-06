@@ -679,8 +679,8 @@ void loop() {
     uint16_t packet = (results.command & 0xff);
     packet <<= 8;
     packet += results.address & 0xff;
-    Serial.print("Bits: ");
-    Serial.println(packet, BIN);
+    //Serial.print("Bits: ");
+    //Serial.println(packet, BIN);
     if (IRvalidate_crc(packet)) 
     {
       Serial.println("CRC OK");
