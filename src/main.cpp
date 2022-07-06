@@ -13,6 +13,7 @@
 #include <ArduinoOTA.h>
 
 #include "base64.hpp"
+#include "ir_data_packet.h"
 
 // GPIO PIN DEFINITION
 #define DEBUG_LED 	15
@@ -54,7 +55,6 @@ NATS nats(
 IRrecv irrecv(IR_PIN);
 decode_results results;
 NATSUtil::NATSServer server;
-DMX dmx;
 
 CRGB leds[MAX_PIXELS];
 
@@ -540,7 +540,7 @@ void led_to_white() {
 void dmx_to_full() {
   for(uint i = 1; i < 513; i++)
   {
-    dmx.Write(i, 255);
+    DMX::Write(i, 255);
   }
 }
 
@@ -593,7 +593,7 @@ void setup() {
 
   /// DMX
   Serial.println("[DMX] Setting up DMX");
-  dmx.Initialize(output, true);      // Output & Double Pins
+  DMX::Initialize(output, true);      // Output & Double Pins
   
   /*
   Serial.println("[DMX] Test CH1");

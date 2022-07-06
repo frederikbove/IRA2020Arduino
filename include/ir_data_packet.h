@@ -1,5 +1,3 @@
-#include <Arduino.h>
-
 // Information below comes from: https://github.com/area3001/Timeblaster/blob/main/Firmware/data.h
 // and from: https://github.com/area3001/Timeblaster/blob/main/Firmware/data.cpp
 
