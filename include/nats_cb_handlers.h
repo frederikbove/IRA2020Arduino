@@ -448,6 +448,7 @@ void nats_name_handler(NATS::msg msg) {
   }
   else if(msg.size == 0)
   {
+    Serial.println("[NATS] Name request");
     String name;
     // send the name back
     for(uint i = 0; i < dev_name_length; i++)
@@ -466,9 +467,10 @@ void nats_name_handler(NATS::msg msg) {
     Serial.print("[NATS] Name: ");
     for(uint c = 0; c < msg.size; c++)
     {
-      Serial.print(c);
+      Serial.print(msg.data[c]);
       EEPROM.write(DEV_NAME+c, msg.data[c]);
     }
+    Serial.println(" ");
     EEPROM.commit();
     nats.publish(msg.reply, "+OK");
   }
