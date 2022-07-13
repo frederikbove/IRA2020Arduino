@@ -9,16 +9,20 @@ void nats_announce()
   announce_message += String("\"EXTMODE\":\"") + String(ext_mode) + String("\",");
   announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\",");
   
+  /*
   String name;
   // send the name back
   for(uint i = 0; i < dev_name_length; i++)
   {
-    name += EEPROM.read(DEV_NAME + i); 
+    char letter = EEPROM.read(DEV_NAME + i);
+    if(letter != 0xff)
+      name +=  letter;
   }
   announce_message += String("\"NAME\":\"") + name + String("\"}");
 
   Serial.print("[NATS] Name in announce: ");
   Serial.println(name);
+  */
 
   // TODO: Add everything in EEPROM,  ...
   String announce_topic = String(NATS_ROOT_TOPIC) + String(".announce");

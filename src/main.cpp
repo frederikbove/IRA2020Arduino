@@ -605,7 +605,7 @@ void setup() {
   Serial.println("[DMX] Setting up DMX");
   DMX::Initialize(output, true);      // Output & Double Pins
   
-  /*
+  /* DMX Test
   Serial.println("[DMX] Test CH1");
   DMX::Write(1, 255);
   delay(500);
@@ -616,8 +616,8 @@ void setup() {
   DMX::Write(4, 255);
   */
 
-  Serial.print("[OTA] starting OTA service  ...");
-  ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "FlyingPigs789*", InternalStorage);
+  //Serial.println("[OTA] starting OTA service  ...");
+  //ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "FlyingPigs789*", InternalStorage);
 
   /// NATS
   Serial.print("[NATS] connecting to nats ...");
@@ -703,43 +703,43 @@ void loop() {
           break;
       }
       // @TODO: send this out on a NATS topic "ROOT_TOPIC + MAC + .ir"
-      nats_publish_ir(results.value, results.address, results.command);   // TODO replace with actual routine with IRDataPacket
+      //nats_publish_ir(results.value, results.address, results.command);   // TODO replace with actual routine with IRDataPacket
     }
     irrecv.resume();  // Receive the next value
   }
 
   switch (nats_mode)
   {
-  case MODE_RGB_TO_PIXELS_W_IR:
-  case MODE_RGB_TO_PIXELS_WO_IR:
-    FastLED.show();
-    break;
+    case MODE_RGB_TO_PIXELS_W_IR:
+    case MODE_RGB_TO_PIXELS_WO_IR:
+      FastLED.show();
+      break;
   
-  case MODE_FX_TO_PIXELS_W_IR:
-  case MODE_FX_TO_PIXELS_WO_IR:
-    process_build_in_fx();
-    FastLED.show();
-    break;
+    case MODE_FX_TO_PIXELS_W_IR:
+    case MODE_FX_TO_PIXELS_WO_IR:
+      process_build_in_fx();
+      FastLED.show();
+      break;
 
-  case MODE_WHITE_PIXELS:
-    led_to_white();
-    dmx_to_full();        // only when previous mode was DMX OUT
-    FastLED.show();
-    break;
+    case MODE_WHITE_PIXELS:
+      led_to_white();
+      dmx_to_full();        // only when previous mode was DMX OUT
+      FastLED.show();
+      break;
 
-  case MODE_DMX_IN:   // @TODO, switch to in
-    break;
+    case MODE_DMX_IN:   // @TODO, switch to in
+      break;
 
-  case MODE_DMX_OUT:  // @TODO, switch to out
-    break;
+    case MODE_DMX_OUT:  // @TODO, switch to out
+      break;
 
-  default:
-    break;
+    default:
+      break;
   }
 
   // check for WiFi OTA updates
-  ArduinoOTA.poll();
+  // ArduinoOTA.poll();
 
   // send all status info
-  nats_publish_status();
+  // nats_publish_status();
 }
