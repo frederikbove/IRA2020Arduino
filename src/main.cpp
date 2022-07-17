@@ -36,6 +36,8 @@
 #define MODE3		    36
 #define MODE4		    39
 
+#define IR_DELAY    10000  // cycles the IR shows over the LEDs
+
 //#define NATS_SERVER "demo.nats.io"
 #define NATS_SERVER     "51.15.194.130" // NATS Server Daan
 #define NATS_ROOT_TOPIC "area3001"
@@ -49,6 +51,16 @@
 
 uint    ext_mode = 15;  // This is to read in the 4 mode configuration pins (external), defaults on 15 = no pins connected
 String  mac_string;     // MAC Address in string format
+uint    post = 0;       // counter to post status messages
+uint    ir_delay = 0;   // counter to time the IR delay effect
+
+uint8_t backup_fx_select;
+uint8_t backup_fx_fgnd_r;
+uint8_t backup_fx_fgnd_g;
+uint8_t backup_fx_fgnd_b;
+uint8_t backup_fx_bgnd_r;
+uint8_t backup_fx_bgnd_g;
+uint8_t backup_fx_bgnd_b;
 
 WiFiClient client;
 NATS nats(
@@ -343,7 +355,6 @@ void nats_on_connect(const char* msg) {
   nats.subscribe(nats_config_topic.c_str(), nats_config_handler);
 
   //@TODO the following only need to subscribe upon mode change!
-
   String nats_dmx_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".dmx");
   Serial.print("[NATS] Subscribing: ");
   Serial.println(nats_dmx_topic);
@@ -530,12 +541,12 @@ void OTAhandleSketchDownload() {
 }
 */
 
-void led_to_white() {
+void all_led_to_color(uint8_t r, uint8_t g, uint8_t b) {
   for(uint i = 0; i < pixel_length; i++)
   {
-    leds[i].r = 255;                    
-    leds[i].g = 255;
-    leds[i].b = 255;
+    leds[i].r = r;                    
+    leds[i].g = g;
+    leds[i].b = b;
   }  
 }
 
@@ -616,8 +627,8 @@ void setup() {
   DMX::Write(4, 255);
   */
 
-  //Serial.println("[OTA] starting OTA service  ...");
-  //ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "FlyingPigs789*", InternalStorage);
+  Serial.println("[OTA] starting OTA service  ...");
+  ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "FlyingPigs789*", InternalStorage);
 
   /// NATS
   Serial.print("[NATS] connecting to nats ...");
@@ -660,6 +671,7 @@ void loop() {
     connect_wifi();
   }
 
+  // make sure new messages are handled
 	nats.process();
   yield();
 
@@ -686,43 +698,115 @@ void loop() {
     uint16_t packet = (results.command & 0xff);
     packet <<= 8;
     packet += results.address & 0xff;
-    //Serial.print("Bits: ");
-    //Serial.println(packet, BIN);
+
     if (IRvalidate_crc(packet)) 
     {
       Serial.println("CRC OK");
+
+      // Overwrite the FX
+      if(nats_mode == MODE_FX_TO_PIXELS_W_IR)
+      {
+        ir_delay = 1;
+        // backup
+        backup_fx_select = fx_select;
+        backup_fx_fgnd_r = fx_fgnd_r;
+        backup_fx_fgnd_g = fx_fgnd_g;
+        backup_fx_fgnd_b = fx_fgnd_b;
+        backup_fx_bgnd_r = fx_bgnd_r;
+        backup_fx_bgnd_g = fx_bgnd_g;
+        backup_fx_bgnd_b = fx_bgnd_b;
+
+        fx_select = FX_PIXEL_LOOP;
+
+        switch (results.address & 0b111) {
+          case 1:
+            fx_fgnd_r = 255;
+            fx_fgnd_g = 0;
+            fx_fgnd_b = 0;
+            fx_bgnd_r = 255;
+            fx_bgnd_g = 60;
+            fx_bgnd_b = 60;
+            break;
+        case 2:
+            fx_fgnd_r = 0;
+            fx_fgnd_g = 255;
+            fx_fgnd_b = 0;
+            fx_bgnd_r = 60;
+            fx_bgnd_g = 255;
+            fx_bgnd_b = 60;
+            break;
+        case 4:
+            fx_fgnd_r = 0;
+            fx_fgnd_g = 0;
+            fx_fgnd_b = 255;
+            fx_bgnd_r = 60;
+            fx_bgnd_g = 60;
+            fx_bgnd_b = 255;
+            break;
+        }
+      }
+      // Overwrite the pixel content (no backup)
+      if(nats_mode == MODE_RGB_TO_PIXELS_W_IR)      // in this case we don't back up, we just block updates for a while (memory footprint)
+      {
+        switch (results.address & 0b111) {
+          case 1:
+            all_led_to_color(255, 0, 0);
+            break;
+        case 2:
+            all_led_to_color(0, 255, 0);
+            break;
+        case 4:
+            all_led_to_color(0, 0, 255);
+            break;
+        }
+      }
+      // Send out on NATS
       switch (results.address & 0b111) {
         case 1:
           Serial.println("REX");
+          nats_publish_ir(packet, 1);
           break;
         case 2:
           Serial.println("GIGGLE");
+          nats_publish_ir(packet, 2);
           break;
         case 4:
           Serial.println("BUZZ");
+          nats_publish_ir(packet, 4);
           break;
       }
-      // @TODO: send this out on a NATS topic "ROOT_TOPIC + MAC + .ir"
-      //nats_publish_ir(results.value, results.address, results.command);   // TODO replace with actual routine with IRDataPacket
     }
     irrecv.resume();  // Receive the next value
   }
 
+  /// Main Processing based on mode
   switch (nats_mode)
   {
     case MODE_RGB_TO_PIXELS_W_IR:
+      if(ir_delay != 0)
+      {
+        ir_delay++;
+        if(ir_delay == 10000)
+          ir_delay = 0;
+      }
     case MODE_RGB_TO_PIXELS_WO_IR:
       FastLED.show();
       break;
   
     case MODE_FX_TO_PIXELS_W_IR:
+      if(ir_delay != 0)
+      {
+        ir_delay++;
+        if(ir_delay == 10000)
+          ir_delay = 0;
+      }
     case MODE_FX_TO_PIXELS_WO_IR:
       process_build_in_fx();
       FastLED.show();
       break;
 
     case MODE_WHITE_PIXELS:
-      led_to_white();
+      all_led_to_color(255, 255, 255);
       dmx_to_full();        // only when previous mode was DMX OUT
       FastLED.show();
       break;
@@ -738,8 +822,13 @@ void loop() {
   }
 
   // check for WiFi OTA updates
-  // ArduinoOTA.poll();
+  ArduinoOTA.poll();
 
   // send all status info
-  // nats_publish_status();
+  post++;
+  if (post == 100000)
+  {  
+    nats_publish_status();
+    post = 0;
+  }
 }

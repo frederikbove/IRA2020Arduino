@@ -9,20 +9,15 @@ void nats_announce()
   announce_message += String("\"EXTMODE\":\"") + String(ext_mode) + String("\",");
   announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\",");
   
-  /*
   String name;
   // send the name back
-  for(uint i = 0; i < dev_name_length; i++)
+  for(uint i = 0; i < dev_name_length-1; i++)       // -1 because is always NULL terminated
   {
     char letter = EEPROM.read(DEV_NAME + i);
     if(letter != 0xff)
       name +=  letter;
   }
   announce_message += String("\"NAME\":\"") + name + String("\"}");
-
-  Serial.print("[NATS] Name in announce: ");
-  Serial.println(name);
-  */
 
   // TODO: Add everything in EEPROM,  ...
   String announce_topic = String(NATS_ROOT_TOPIC) + String(".announce");
@@ -44,19 +39,26 @@ void nats_publish_ext_mode(uint mode)
   nats.publish(ext_mode_topic.c_str(), String(mode, DEC).c_str());
 }
 
-void nats_publish_ir(uint64_t value, uint32_t address, uint32_t command)
+void nats_publish_ir(uint16_t packet, uint8_t teamnr)
 {
   String ir_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".ir");
 
-  uint32_t value_high, value_low;
+  String ir_message = String("{\"packet\": \"") + String(packet) + String("\",");
 
-  value_high = ((uint32_t *) &value)[0];
-  value_low = ((uint32_t *) &value)[1];
+  String team;
 
-  String ir_message = String("{\"value_high\": \"") + String(value_high) + String("\",");
-  ir_message += String("{\"value_low\": \"") + String(value_low) + String("\",");  
-  ir_message += String("\"address\":\"") + String(address) + String("\",");    
-  ir_message += String("\"command\":\"") + String(command) + String("\"}");
+  switch (teamnr) {
+    case 1:
+      team = "REX";
+      break;
+    case 2:
+      team = "GIGGLE";
+      break;
+    case 4:
+      team = "BUZZ";
+      break;
+  }
+  ir_message += String("\"team\":\"") + team + String("\"}");
 
   nats.publish(ir_topic.c_str(), ir_message.c_str());
 }
@@ -96,6 +98,12 @@ void nats_mode_handler(NATS::msg msg) {
     EEPROM.commit();
 
     printMode(nats_mode);
+
+    // make sure we switch IR reception back off
+    if((nats_mode != MODE_RGB_TO_PIXELS_W_IR ) && (nats_mode != MODE_FX_TO_PIXELS_W_IR))
+    {
+      ir_delay = 0;
+    }
   }
   nats.publish(msg.reply, "+OK");
 }
@@ -153,8 +161,7 @@ void nats_config_handler(NATS::msg msg) {
   nats.publish(msg.reply, "+OK"); 
 }
 
-/* 
-This receives a complete DMX Frame of 512+1 bytes (allow SC to be set), 513 bytes are Base64 encoded
+/* This receives a complete DMX Frame of 512+1 bytes (allow SC to be set), 513 bytes are Base64 encoded
 Currently the start code isn't used
 */
 void nats_dmx_frame_handler(NATS::msg msg) {
@@ -228,11 +235,33 @@ void nats_rgb_frame_handler(NATS::msg msg) {
 
   if( (nats_mode == MODE_RGB_TO_PIXELS_W_IR ) || (nats_mode == MODE_RGB_TO_PIXELS_WO_IR) )   // need to add ext mode to this
   {
-    Serial.print("[NATS] Message Data: ");
-    Serial.println(msg.data);
+    if( (ir_delay != 0) && (nats_mode == MODE_RGB_TO_PIXELS_W_IR))
+    { 
+      nats.publish(msg.reply, "NOK, IR overruled");   // IR overruled
+      return;
+    }
 
     uint8_t dec_data[msg.size];
     uint8_t dec_length = decode_base64((unsigned char *) msg.data, dec_data);
+    uint16_t pix_len = (dec_data[2] << 8) + dec_data[3];
+
+    // Exit ASAP
+    if(pix_len > MAX_PIXELS)
+    {
+      Serial.println("[NATS] Too many pixels");
+      nats.publish(msg.reply, "NOK, Too many pixels");   // Not in the right mode
+      return;
+    }
+
+    if(pix_len == 0)
+    {
+      Serial.println("[NATS] Length is 0");
+      nats.publish(msg.reply, "NOK, Length is 0");   // Not ok
+      return;
+    }
+
+    Serial.print("[NATS] Message Data: ");
+    Serial.println(msg.data);
 
     Serial.print("[NATS] Decoded Message Length: ");
     Serial.println(dec_length);
@@ -249,23 +278,10 @@ void nats_rgb_frame_handler(NATS::msg msg) {
     Serial.print("[NATS] RGB Pixel Data Offset: ");
     Serial.println(pix_offset);
     
-    uint16_t pix_len = (dec_data[2] << 8) + dec_data[3];
     Serial.print("[NATS] RGB Per Pixel Datapoints: ");
     Serial.println(pix_len);                            // @TODO: This needs to be checked & used!, currently A and W are ditched
 
-    if(pix_len > MAX_PIXELS)
-    {
-      Serial.println("[NATS] Too many pixels");
-      nats.publish(msg.reply, "NOK, Too many pixels");   // Not in the right mode
-      return;
-    }
 
-    if(pix_len == 0)
-    {
-      Serial.println("[NATS] Length is 0");
-      nats.publish(msg.reply, "NOK, Length is 0");   // Not ok
-      return;
-    }
 
     for(int led_index = 0; led_index < pix_len; led_index++) // from 0 increment with #data per pixel
     {
@@ -444,47 +460,50 @@ void nats_fx_handler(NATS::msg msg) {
 /* This is the name callback routine
 max 32 byte name message, ascii encoded
 */
-void nats_name_handler(NATS::msg msg) {
-  
+void nats_name_handler(NATS::msg msg) { 
   Serial.println("[NATS] Name Handler");
 
   if(msg.size > 32)
   {
     Serial.println("[NATS] Name too long, ignoring");
     nats.publish(msg.reply, "NOK, Name too long");
+    return;
   }
-  else if(msg.size == 0)
+
+  if(msg.data[0] == '*')
   {
-    Serial.println("[NATS] Name request");
+    Serial.print("[NATS] Name request: ");
     String name;
     // send the name back
-    /*
-    for(uint i = 0; i < dev_name_length; i++)
+    for(uint i = 0; i < dev_name_length-1; i++)   // -1 because is always 0 terminated
     {
-      name += String(EEPROM.read(DEV_NAME + i));
+      char c = EEPROM.read(DEV_NAME + i);
+      name += String(c);
     }
+    Serial.println(name);
     String nats_name_topic = String(NATS_ROOT_TOPIC) + String(".") + mac_string + String(".name");
     nats.publish(nats_name_topic.c_str(), name.c_str());
-    */
+    return;
   }
-  else
+  if(msg.size > 1)
   {
+    Serial.print("[NATS] Name set,");
     dev_name_length = msg.size;
     EEPROM.write(DEV_NAME_LENGTH, dev_name_length);
-    Serial.print("[NATS] Name length:");
+    Serial.print(" length:");
     Serial.println(dev_name_length);
 
     // set the name
     Serial.print("[NATS] Name: ");
 
-    for(uint c = 0; c < dev_name_length; c++)
+    for(uint c = 0; c < dev_name_length-1; c++)     // -1 because is always 0 terminated
     {
       Serial.print(msg.data[c]);
       EEPROM.write(DEV_NAME+c, msg.data[c]);
     }
-
     Serial.println(" ");
     EEPROM.commit();
+    delay(1000);    // needed for EEPROM to process
     nats.publish(msg.reply, "+OK");
   }
 }
