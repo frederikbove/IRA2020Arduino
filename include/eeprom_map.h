@@ -71,3 +71,26 @@ void eeprom_restate ()
 
     dev_name_length = EEPROM.read(DEV_NAME_LENGTH);
 }
+
+void eeprom_variables_print() 
+{
+    Serial.print("[VAR] eeprom_maj: "); Serial.println(eeprom_maj);
+    Serial.print("[VAR] eeprom_min: "); Serial.println(eeprom_min);
+
+    Serial.print("[VAR] nats_mode: "); Serial.println(nats_mode);
+    Serial.print("[VAR] pixel_length: "); Serial.println(pixel_length);
+
+    Serial.print("[VAR] fx_select: "); Serial.println(fx_select);
+    Serial.print("[VAR] fx_speed: "); Serial.println(fx_speed);
+    Serial.print("[VAR] fx_xfade: "); Serial.println(fx_xfade);
+    Serial.print("[VAR] fx_fgnd_r: "); Serial.println(fx_fgnd_r);
+    Serial.print("[VAR] fx_fgnd_g: "); Serial.println(fx_fgnd_g);
+    Serial.print("[VAR] fx_fgnd_b: "); Serial.println(fx_fgnd_b);
+    Serial.print("[VAR] fx_bgnd_r: "); Serial.println(fx_bgnd_r);
+    Serial.print("[VAR] fx_bgnd_g: "); Serial.println(fx_bgnd_g);
+    Serial.print("[VAR] fx_bgnd_rb: "); Serial.println(fx_bgnd_b);
+
+    Serial.print("[VAR] board_version: "); Serial.println(board_version);
+    Serial.print("[VAR] board_serial_nr: "); Serial.println(board_serial_nr);
+    Serial.print("[VAR] dev_name_length: "); Serial.println(dev_name_length);
+}

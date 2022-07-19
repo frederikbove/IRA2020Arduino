@@ -433,6 +433,7 @@ class NATS {
 	public:
 
 		bool connect() {
+			Serial.println("[NATS_H] connect");
 			if (client->connect(hostname, port)) {
 				outstanding_pings = 0;
 				reconnect_attempts = 0;

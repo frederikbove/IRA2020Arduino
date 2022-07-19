@@ -397,7 +397,14 @@ void nats_fx_handler(NATS::msg msg) {
   if( (nats_mode == MODE_FX_TO_PIXELS_W_IR ) || (nats_mode == MODE_FX_TO_PIXELS_WO_IR) )   // need to add ext mode to this
   {
     uint8_t dec_data[msg.size];
-    uint8_t dec_length = decode_base64((unsigned char *) msg.data, dec_data);     // @TODO: check on length!
+    uint8_t dec_length = decode_base64((unsigned char *) msg.data, dec_data); 
+    
+    if(dec_length == 0)
+    {
+      Serial.println("[NATS] Decode_base64 error");
+      nats.publish(msg.reply, "NOK, base64 error");
+      return;
+    } 
 
     fx_select = dec_data[0];
     fx_speed = dec_data[1];

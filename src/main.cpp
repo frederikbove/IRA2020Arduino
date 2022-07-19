@@ -1,10 +1,18 @@
+
+/* Core distribution
+* DMX     Core 0
+* Setup   Core 1
+* Nats    Core
+* IR      Core 
+*/
+
 #include <Arduino.h>
 
 #include <WiFi.h>
 #include <ArduinoNats.h>
 
-#define _IR_ENABLE_DEFAULT_ false     // test, this might need to move to IRremoteESP8266.h
-#define DECODE_JVC  true
+#define _IR_ENABLE_DEFAULT_ false     // This has been moved to compiler arguments
+#define DECODE_JVC          true
 
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
@@ -15,8 +23,21 @@
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h>
 
+#include <HTTPClient.h>
+
 #include "base64.hpp"
 #include "ir_data_packet.h"
+
+/*
+#include "esp_ota_ops.h"          
+#include "esp_http_client.h"
+#include "esp_https_ota.h"
+*/
+
+#define VERSION     1     // This is for HTTP based OTA, end user release versions tracker
+/* Version History
+* VERSION 1 : original HTTP OTA implementation
+*/
 
 // GPIO PIN DEFINITION
 #define DEBUG_LED 	15
@@ -38,8 +59,10 @@
 
 #define IR_DELAY    10000  // cycles the IR shows over the LEDs
 
-//#define NATS_SERVER "demo.nats.io"
-#define NATS_SERVER     "51.15.194.130" // NATS Server Daan
+//#define NATS_SERVER     "demo.nats.io"
+//#define NATS_SERVER     "51.15.194.130" // NATS Server Daan ScaleWay
+//#define NATS_SERVER     "10.2.0.2"        // NATS on PINKY (KB Design)
+#define NATS_SERVER     "fri3d.triggerwear.io"
 #define NATS_ROOT_TOPIC "area3001"
 #define MAX_PIXELS      120
 
@@ -75,17 +98,6 @@ CRGB leds[MAX_PIXELS];
 
 #include "build_in_fx.h"
 #include "nats_cb_handlers.h"
-
-/*
-void IRAM_ATTR Mode_ISR() {
-  if (getMode() != mode)
-  {
-    Serial.print("ISR! Mode changed: ");
-    Serial.println(getMode(), DEC); 
-    mode = getMode();
-  };
-}
-*/
 
 // Used to set the pinMode of each used pin and attach Interrupts where required
 void configure_IO() {
@@ -226,9 +238,9 @@ void WiFiEvent(WiFiEvent_t event)
 // Set up the WIFI connection
 void connect_wifi() {
   Serial.print("[WIFI] connecting to ");
-  Serial.println(WIFI_SSID);
+  Serial.print(WIFI_SSID);
 
-  Serial.print("with MAC: ");
+  Serial.print(" with MAC: ");
   wifi_printMAC();
   Serial.println(" ");
   wifi_setMACstring();
@@ -247,8 +259,8 @@ void connect_wifi() {
     delay(1000);
   }
 
-  Serial.print(" connected IP: ");
-  Serial.println(WiFi.localIP());
+  //Serial.print(" connected IP: ");
+  //Serial.println(WiFi.localIP());
 }
 
 bool parse_server(const char* msg) {
@@ -396,7 +408,8 @@ void nats_on_disconnect() {
   Serial.println("[NATS] Disconnect");
 }
 
-/*
+/* This routine is just to check the base64 math
+*/
 void base64test() 
 {
   uint8_t length = 2+1+(3*4); // 2 length, 1 #pixeldata, 4pixels x 3 bytes/pixel
@@ -457,62 +470,95 @@ void base64test()
   }
   Serial.println(" ");
 }
-*/ 
 
+/* This routine is just to configure boards that have never booted
+*/
 void setup_eeprom() {
     EEPROM.write(EEPROM_MAJ_VERSION, 1);
     EEPROM.write(EEPROM_MINOR_VERION, 3);
-    EEPROM.write(PIXEL_LENGTH, 10);
+    EEPROM.write(PIXEL_LENGTH, 100);
     EEPROM.write(HW_BOARD_VERSION, 1);
     EEPROM.write(HW_BOARD_SERIAL_NR, 2);
     EEPROM.commit();
 }
 
-/*
+/* This handles HTTP OTA
+* Assumes a HTTP server runs on the network hosting the binary files
+*/
+// @TODO replace with : https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/esp_https_ota.html
 void OTAhandleSketchDownload() {
-
-  const char* SERVER = "10.2.0.1"; // must be string for HttpClient
-  const unsigned short SERVER_PORT = 80;
-  const char* PATH = "/update-v%d.bin";
-  const unsigned long CHECK_INTERVAL = 5000;
+  const unsigned long CHECK_INTERVAL = 60000;   // every 10min
 
   static unsigned long previousMillis;
-
   unsigned long currentMillis = millis();
 
+  // Return out of this ASAP
   if (currentMillis - previousMillis < CHECK_INTERVAL)
     return;
   previousMillis = currentMillis;
 
-  WiFiClient transport;                                   // THIS IS AN ISSUE AS ESP32 WIFI doesn't implement the necessary calls
-  // should normally be able to replace this with this example for HTTP: https://randomnerdtutorials.com/esp32-http-get-post-arduino/
-  HttpClient client(transport, SERVER, SERVER_PORT);
+  Serial.println("[OTA] HTTP OTA Handler check");
 
-  char buff[32];
-  snprintf(buff, sizeof(buff), PATH, VERSION + 1);
+  const char* SERVER = "http://fri3d.triggerwear.io"; // must be string for HttpClient
+  const unsigned short SERVER_PORT = 3030;
 
-  Serial.print("[OTA] Check for update file ");
-  Serial.println(buff);
+  HTTPClient http;
+  
+  String location;
+  location += SERVER;
+  location += ":";
+  location += String(SERVER_PORT);
+  location += "/update-v";
+  location += String(VERSION + 1);    // If the next version is available
+  location += ".bin";
 
-  client.get(buff);
+  Serial.print("[OTA] location: ");
+  Serial.println(location);             // gives: [OTA] location: 10.2.0.1:80/update-v2.bin
 
-  int statusCode = client.responseStatusCode();
-  Serial.print("[OTA] Update status code: ");
-  Serial.println(statusCode);
-  if (statusCode != 200) {
-    client.stop();
+  http.begin(location);                 // We can also use the elaborate versionof begin 
+
+  int httpResponseCode = http.GET();
+      
+  if (httpResponseCode != 200)          // 200 = HTTP OK
+  {
+    Serial.print("[OTA] HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    Serial.println("[OTA] Expected Code 200, exiting");
+    // Free resources
+    http.end();
     return;
   }
 
+  int httpsize = http.getSize();
+  Serial.print("[OTA] HTTP Size: ");
+  Serial.print(httpsize);
+  Serial.println(" bytes");
+
+  if (!InternalStorage.open(httpsize)) {
+    Serial.println("[OTA] There is not enough space to store the update. Can't continue with update.");
+    // Free resources
+    http.end();
+    return;
+  }
+
+  int headers = http.headers();
+  for(int i = 0; i < headers; i++)
+  {
+    Serial.print("[OTA] HTTP Header Name/Key: ");
+    Serial.print(http.headerName(i));
+    Serial.print(" Header Value: ");
+    Serial.println(http.header(i));
+  }
+  // Free resources 
+  http.end();
+
+  /*
   long length = client.contentLength();
   if (length == HttpClient::kNoContentLengthHeader) {
     client.stop();
     Serial.println("Server didn't provide Content-length header. Can't continue with update.");
     return;
   }
-  Serial.print("Server returned update file of size ");
-  Serial.print(length);
-  Serial.println(" bytes");
 
   if (!InternalStorage.open(length)) {
     client.stop();
@@ -538,8 +584,8 @@ void OTAhandleSketchDownload() {
   Serial.println("Sketch update apply and reset.");
   Serial.flush();
   InternalStorage.apply(); // this doesn't return
+  */
 }
-*/
 
 void all_led_to_color(uint8_t r, uint8_t g, uint8_t b) {
   for(uint i = 0; i < pixel_length; i++)
@@ -563,11 +609,14 @@ void setup() {
   /// SERIAL PORT
   Serial.begin(115200);
   Serial.println(" ");
-  Serial.println("[SYS] booting ira firmware");
+  Serial.print("[SYS] booting ira firmware, Version ");
+  Serial.println(VERSION);
 
   // EEPROM
   EEPROM.begin(EEPROM_SIZE);
+  //setup_eeprom();
   eeprom_restate();             // read all values back from EEPROM upon startup
+  eeprom_variables_print();
 
   if(dev_name_length > 32)    // only for empty platforms
   {
@@ -584,7 +633,7 @@ void setup() {
   Serial.println("[IO] set debug led on");
   digitalWrite(DEBUG_LED, LOW);
 
-  Serial.print("[IO] current mode: ");
+  Serial.print("[IO] current ext mode: ");
   ext_mode = getMode();
   Serial.println(getMode(), DEC);
 
@@ -596,10 +645,7 @@ void setup() {
   /// WIFI
   connect_wifi();
 
-  // @TODO remove this hard limit from the code
-  pixel_length = 10;
-
-  /// FASTLED                                                 // @TODO This init should take place here, it should happen after a mode is chosen
+  /// FASTLED                                                 // @TODO This init shouldn't take place here, it should happen after a mode is chosen
   Serial.println("[PIX] Setting up pixeltape");
   FastLED.addLeds<NEOPIXEL, PIXEL_DATA>(leds, pixel_length);
 
@@ -645,8 +691,6 @@ void setup() {
   {
     Serial.println("NATS not connected!");
   }
-
-  // base64test();
 }
 
 void loop() {
@@ -823,6 +867,8 @@ void loop() {
 
   // check for WiFi OTA updates
   ArduinoOTA.poll();
+  // check for HTTP OTA updates
+  OTAhandleSketchDownload();
 
   // send all status info
   post++;

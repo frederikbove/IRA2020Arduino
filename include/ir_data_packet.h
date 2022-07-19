@@ -1,6 +1,6 @@
 // Information below comes from: https://github.com/area3001/Timeblaster/blob/main/Firmware/data.h
 // and from: https://github.com/area3001/Timeblaster/blob/main/Firmware/data.cpp
-
+/*
 enum IRTeamColor : uint8_t
 {
   eNoTeam = 0b000,
@@ -53,11 +53,12 @@ enum IRDeviceType: uint8_t
   eBadge = 0b10,
   eAllDevices = 0b11,
 };
-
+*/
 /* Calculate the 4-bit CRC and xor it with the existing CRC.
  * For new packages it add the CRC
  * For existing packages it will set the CRC to 0 if the existing CRC was correct.
  */
+/*
 IRDataPacket IRcalculateCRC(IRDataPacket packet)
 {
   bool crc[] = {0, 0, 0, 0};
@@ -87,7 +88,7 @@ IRDataPacket IRcalculateCRC(IRDataPacket packet)
 
   return packet;
 }
-
+*/
 bool IRvalidate_crc(uint16_t packet)
 {
   bool crc[] = {0, 0, 0, 0};
