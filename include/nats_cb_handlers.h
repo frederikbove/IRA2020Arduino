@@ -512,5 +512,7 @@ void nats_name_handler(NATS::msg msg) {
     EEPROM.commit();
     delay(1000);    // needed for EEPROM to process
     nats.publish(msg.reply, "+OK");
+
+    nats_announce();
   }
 }

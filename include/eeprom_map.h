@@ -23,7 +23,7 @@
 #define DEV_NAME            17      // 32 bytes long max
 
 /// EEPROM SIZE
-#define EEPROM_SIZE         49    // the number of bytes we want to read/store
+#define EEPROM_SIZE         64    // the number of bytes we want to read/store, rounded up
 
 uint8_t eeprom_maj;
 uint8_t eeprom_min;

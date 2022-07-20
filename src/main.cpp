@@ -28,11 +28,9 @@
 #include "base64.hpp"
 #include "ir_data_packet.h"
 
-/*
 #include "esp_ota_ops.h"          
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
-*/
 
 #define VERSION     1     // This is for HTTP based OTA, end user release versions tracker
 /* Version History
@@ -64,7 +62,7 @@
 //#define NATS_SERVER     "10.2.0.2"        // NATS on PINKY (KB Design)
 #define NATS_SERVER     "fri3d.triggerwear.io"
 #define NATS_ROOT_TOPIC "area3001"
-#define MAX_PIXELS      120
+#define MAX_PIXELS      255       // @TODO this needs to increase, but then memory map needs to be adjusted
 
 #include "eeprom_map.h"           // this keeps the map of the non-volatile storage & the variables belonging to it
 #include "operation_modes.h"      // these define all possible operation modes of IRA2020
@@ -487,7 +485,7 @@ void setup_eeprom() {
 */
 // @TODO replace with : https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/esp_https_ota.html
 void OTAhandleSketchDownload() {
-  const unsigned long CHECK_INTERVAL = 60000;   // every 10min
+  const unsigned long CHECK_INTERVAL = 60000;   // every 10min = 600000
 
   static unsigned long previousMillis;
   unsigned long currentMillis = millis();
@@ -534,13 +532,6 @@ void OTAhandleSketchDownload() {
   Serial.print(httpsize);
   Serial.println(" bytes");
 
-  if (!InternalStorage.open(httpsize)) {
-    Serial.println("[OTA] There is not enough space to store the update. Can't continue with update.");
-    // Free resources
-    http.end();
-    return;
-  }
-
   int headers = http.headers();
   for(int i = 0; i < headers; i++)
   {
@@ -552,39 +543,53 @@ void OTAhandleSketchDownload() {
   // Free resources 
   http.end();
 
-  /*
-  long length = client.contentLength();
-  if (length == HttpClient::kNoContentLengthHeader) {
-    client.stop();
-    Serial.println("Server didn't provide Content-length header. Can't continue with update.");
-    return;
-  }
+  String path = "/update-v";
+  path += String(VERSION + 1);    // If the next version is available
+  path += ".bin";
 
-  if (!InternalStorage.open(length)) {
-    client.stop();
-    Serial.println("There is not enough space to store the update. Can't continue with update.");
-    return;
-  }
-  byte b;
-  while (length > 0) {
-    if (!client.readBytes(&b, 1)) // reading a byte with timeout
+  // Do the actual OTA
+  esp_http_client_config_t config = {
+    .url = location.c_str(),
+  };
+  config.auth_type = HTTP_AUTH_TYPE_NONE;
+    /*
+      esp_http_client_config_t config = {
+        .url = location.c_str(),
+        .host = SERVER,                     // this and following shouldn't be needed 
+        .port = SERVER_PORT,
+        .auth_type = HTTP_AUTH_TYPE_NONE,
+        .path = path.c_str()
+    };*/
+  esp_err_t ret = esp_https_ota(&config);
+
+  switch (ret)
+  {
+    case ESP_OK:
+      Serial.println("[OTA] ESP OTA SUCCESS");
+      esp_restart();
+      break;       // shouldn't execute this line normally
+    case ESP_FAIL:
+      Serial.println("[OTA] ESP OTA FAIL");
       break;
-    InternalStorage.write(b);
-    length--;
+    case ESP_ERR_INVALID_ARG:
+      Serial.println("[OTA] ESP OTA INVALID ARG");
+      break;
+    case ESP_ERR_OTA_VALIDATE_FAILED:
+      Serial.println("[OTA] ESP OTA VALIDATE FAILED, invalid image");
+      break; 
+    case ESP_ERR_NO_MEM:
+      Serial.println("[OTA] ESP OTA NO MEM");
+      break; 
+    case ESP_ERR_FLASH_OP_TIMEOUT:
+      Serial.println("[OTA] ESP OTA FLASH OP TIMEOUT");
+      break;
+    case ESP_ERR_FLASH_OP_FAIL:
+      Serial.println("[OTA] ESP OTA FLASH OP FAIL");
+      break;
+    default:
+      Serial.println("[OTA] ESP OTA FAIL");
+      break;
   }
-  InternalStorage.close();
-  client.stop();
-  if (length > 0) {
-    Serial.print("Timeout downloading update file at ");
-    Serial.print(length);
-    Serial.println(" bytes. Can't continue with update.");
-    return;
-  }
-
-  Serial.println("Sketch update apply and reset.");
-  Serial.flush();
-  InternalStorage.apply(); // this doesn't return
-  */
 }
 
 void all_led_to_color(uint8_t r, uint8_t g, uint8_t b) {
@@ -614,7 +619,7 @@ void setup() {
 
   // EEPROM
   EEPROM.begin(EEPROM_SIZE);
-  //setup_eeprom();
+  setup_eeprom();
   eeprom_restate();             // read all values back from EEPROM upon startup
   eeprom_variables_print();
 
