@@ -84,6 +84,7 @@ uint8_t backup_fx_bgnd_g;
 uint8_t backup_fx_bgnd_b;
 
 WiFiClient client;
+
 NATS nats(
 	&client,
 	NATS_SERVER, NATS_DEFAULT_PORT
@@ -96,6 +97,8 @@ CRGB leds[MAX_PIXELS];
 
 #include "build_in_fx.h"
 #include "nats_cb_handlers.h"
+#include "OTAStorage.h"
+
 
 // Used to set the pinMode of each used pin and attach Interrupts where required
 void configure_IO() {
@@ -480,10 +483,62 @@ void setup_eeprom() {
     EEPROM.commit();
 }
 
+void espOTA( String location)
+{
+  // Do the actual OTA
+  esp_http_client_config_t config = {
+    .url = location.c_str(),
+  };
+  config.auth_type = HTTP_AUTH_TYPE_NONE;
+    /*
+      esp_http_client_config_t config = {
+        .url = location.c_str(),
+        .host = SERVER,                     // this and following shouldn't be needed 
+        .port = SERVER_PORT,
+        .auth_type = HTTP_AUTH_TYPE_NONE,
+        .path = path.c_str()
+    };*/
+  /*
+  esp_https_ota_config_t ota_config = {
+        .http_config = &config,
+    };
+  esp_err_t ret = esp_https_ota(&ota_config);
+  */
+  esp_err_t ret = esp_https_ota(&config); // OLD ESP-IDF
+
+  switch (ret)
+  {
+    case ESP_OK:
+      Serial.println("[OTA] ESP OTA SUCCESS");
+      esp_restart();
+      break;       // shouldn't execute this line normally
+    case ESP_FAIL:
+      Serial.println("[OTA] ESP OTA FAIL");
+      break;
+    case ESP_ERR_INVALID_ARG:
+      Serial.println("[OTA] ESP OTA INVALID ARG");
+      break;
+    case ESP_ERR_OTA_VALIDATE_FAILED:
+      Serial.println("[OTA] ESP OTA VALIDATE FAILED, invalid image");
+      break; 
+    case ESP_ERR_NO_MEM:
+      Serial.println("[OTA] ESP OTA NO MEM");
+      break; 
+    case ESP_ERR_FLASH_OP_TIMEOUT:
+      Serial.println("[OTA] ESP OTA FLASH OP TIMEOUT");
+      break;
+    case ESP_ERR_FLASH_OP_FAIL:
+      Serial.println("[OTA] ESP OTA FLASH OP FAIL");
+      break;
+    default:
+      Serial.println("[OTA] ESP OTA FAIL");
+      break;
+  }
+}
+
 /* This handles HTTP OTA
 * Assumes a HTTP server runs on the network hosting the binary files
 */
-// @TODO replace with : https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/esp_https_ota.html
 void OTAhandleSketchDownload() {
   const unsigned long CHECK_INTERVAL = 60000;   // every 10min = 600000
 
@@ -516,11 +571,12 @@ void OTAhandleSketchDownload() {
   http.begin(location);                 // We can also use the elaborate versionof begin 
 
   int httpResponseCode = http.GET();
-      
+  
+  Serial.print("[OTA] HTTP Response code: ");
+  Serial.println(httpResponseCode);    
+  
   if (httpResponseCode != 200)          // 200 = HTTP OK
   {
-    Serial.print("[OTA] HTTP Response code: ");
-    Serial.println(httpResponseCode);
     Serial.println("[OTA] Expected Code 200, exiting");
     // Free resources
     http.end();
@@ -540,56 +596,37 @@ void OTAhandleSketchDownload() {
     Serial.print(" Header Value: ");
     Serial.println(http.header(i));
   }
+
+  /*
+  uint8_t buff[128] = {0};
+  WiFiClient* stream = http.getStreamPtr();
+  OTAStorage* _storage;
+  long read = 0;
+
+  // Need to have a look here: https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.cpp
+
+  if (_storage == NULL) 
+  {
+    Serial.println("[OTA] OTAStorate pointer returned NULL");
+    return;
+  }
+
+  if (!_storage->open(httpsize)) 
+  {
+    Serial.println("[OTA] Can't open enough memory space");
+    return;
+  }
+
+  if (_storage->maxSize() && httpsize > _storage->maxSize()) {
+    _storage->close();
+    Serial.println("[OTA] Payload Too Large");
+    return;
+  }
+  */
   // Free resources 
   http.end();
 
-  String path = "/update-v";
-  path += String(VERSION + 1);    // If the next version is available
-  path += ".bin";
 
-  // Do the actual OTA
-  esp_http_client_config_t config = {
-    .url = location.c_str(),
-  };
-  config.auth_type = HTTP_AUTH_TYPE_NONE;
-    /*
-      esp_http_client_config_t config = {
-        .url = location.c_str(),
-        .host = SERVER,                     // this and following shouldn't be needed 
-        .port = SERVER_PORT,
-        .auth_type = HTTP_AUTH_TYPE_NONE,
-        .path = path.c_str()
-    };*/
-  esp_err_t ret = esp_https_ota(&config);
-
-  switch (ret)
-  {
-    case ESP_OK:
-      Serial.println("[OTA] ESP OTA SUCCESS");
-      esp_restart();
-      break;       // shouldn't execute this line normally
-    case ESP_FAIL:
-      Serial.println("[OTA] ESP OTA FAIL");
-      break;
-    case ESP_ERR_INVALID_ARG:
-      Serial.println("[OTA] ESP OTA INVALID ARG");
-      break;
-    case ESP_ERR_OTA_VALIDATE_FAILED:
-      Serial.println("[OTA] ESP OTA VALIDATE FAILED, invalid image");
-      break; 
-    case ESP_ERR_NO_MEM:
-      Serial.println("[OTA] ESP OTA NO MEM");
-      break; 
-    case ESP_ERR_FLASH_OP_TIMEOUT:
-      Serial.println("[OTA] ESP OTA FLASH OP TIMEOUT");
-      break;
-    case ESP_ERR_FLASH_OP_FAIL:
-      Serial.println("[OTA] ESP OTA FLASH OP FAIL");
-      break;
-    default:
-      Serial.println("[OTA] ESP OTA FAIL");
-      break;
-  }
 }
 
 void all_led_to_color(uint8_t r, uint8_t g, uint8_t b) {
@@ -707,11 +744,14 @@ void loop() {
     ext_mode = getMode();
 
     printMode(ext_mode);
-    if(nats.connected)
+    if (WiFi.status() == WL_CONNECTED)
     {
-      nats_publish_ext_mode(ext_mode);
-    }
-    delay(300); //against sending too many state changes at once
+      if(nats.connected)
+      {
+        nats_publish_ext_mode(ext_mode);
+      }
+      delay(300);
+    } //against sending too many state changes at once
   }
 
   /// CHECK IF WIFI IS STILL CONNECTED
@@ -719,10 +759,16 @@ void loop() {
   { 
     connect_wifi();
   }
-
-  // make sure new messages are handled
-	nats.process();
-  yield();
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    // make sure new messages are handled
+	  nats.process();
+    // check for WiFi OTA updates
+    ArduinoOTA.poll();
+    // check for HTTP OTA updates
+    OTAhandleSketchDownload();
+  }
+  yield();        // Needed for FastLED
 
   /// CHECK FOR IR DATA
   if (irrecv.decode(&results)) {
@@ -809,8 +855,10 @@ void loop() {
             break;
         }
       }
-      // Send out on NATS
-      switch (results.address & 0b111) {
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        // Send out on NATS
+        switch (results.address & 0b111) {
         case 1:
           Serial.println("REX");
           nats_publish_ir(packet, 1);
@@ -823,6 +871,7 @@ void loop() {
           Serial.println("BUZZ");
           nats_publish_ir(packet, 4);
           break;
+        }
       }
     }
     irrecv.resume();  // Receive the next value
@@ -869,11 +918,6 @@ void loop() {
     default:
       break;
   }
-
-  // check for WiFi OTA updates
-  ArduinoOTA.poll();
-  // check for HTTP OTA updates
-  OTAhandleSketchDownload();
 
   // send all status info
   post++;
