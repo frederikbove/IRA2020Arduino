@@ -28,6 +28,7 @@
 #include "base64.hpp"
 #include "ir_data_packet.h"
 
+#include <esp_partition.h>
 #include "esp_ota_ops.h"          
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
@@ -602,31 +603,29 @@ void OTAhandleSketchDownload() {
   WiFiClient* stream = http.getStreamPtr();
   OTAStorage* _storage;
   long read = 0;
+  */
+
+  uint32_t space = ESP.getFreeSketchSpace();
+  Serial.print("[OTA] Free Sketch Space: ");
+  Serial.println(space);
+
+  const esp_partition_t* _partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL);
+  if(!_partition){
+    Serial.println("[OTA] No partition available, exiting");
+    return;
+  }
+  if(httpsize > _partition->size) {
+    Serial.printf("[OTA] spiffsSize to low (%d) needed: %d\n", _partition->size, httpsize);
+    return;
+  }
+  Serial.println("[OTA] Ready to update");
+
 
   // Need to have a look here: https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.cpp
+  // https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.h
 
-  if (_storage == NULL) 
-  {
-    Serial.println("[OTA] OTAStorate pointer returned NULL");
-    return;
-  }
-
-  if (!_storage->open(httpsize)) 
-  {
-    Serial.println("[OTA] Can't open enough memory space");
-    return;
-  }
-
-  if (_storage->maxSize() && httpsize > _storage->maxSize()) {
-    _storage->close();
-    Serial.println("[OTA] Payload Too Large");
-    return;
-  }
-  */
   // Free resources 
-  http.end();
-
-
+  // http.end();
 }
 
 void all_led_to_color(uint8_t r, uint8_t g, uint8_t b) {
