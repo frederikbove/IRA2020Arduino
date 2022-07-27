@@ -21,9 +21,10 @@
 #include <esp_dmx.h>
 
 #include <ArduinoJson.h>
-#include <ArduinoOTA.h>
+// #include <ArduinoOTA.h>
 
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
 
 #include "base64.hpp"
 #include "ir_data_packet.h"
@@ -33,7 +34,7 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION     1     // This is for HTTP based OTA, end user release versions tracker
+#define VERSION     3     // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
 */
@@ -478,7 +479,7 @@ void base64test()
 void setup_eeprom() {
     EEPROM.write(EEPROM_MAJ_VERSION, 1);
     EEPROM.write(EEPROM_MINOR_VERION, 3);
-    EEPROM.write(PIXEL_LENGTH, 100);
+    EEPROM.write(PIXEL_LENGTH, 10);
     EEPROM.write(HW_BOARD_VERSION, 1);
     EEPROM.write(HW_BOARD_SERIAL_NR, 2);
     EEPROM.commit();
@@ -554,9 +555,10 @@ void OTAhandleSketchDownload() {
   Serial.println("[OTA] HTTP OTA Handler check");
 
   const char* SERVER = "http://fri3d.triggerwear.io"; // must be string for HttpClient
-  const unsigned short SERVER_PORT = 3030;
+  const unsigned short SERVER_PORT = 80;
 
   HTTPClient http;
+  HTTPUpdate updater;
   
   String location;
   location += SERVER;
@@ -570,7 +572,7 @@ void OTAhandleSketchDownload() {
   Serial.println(location);             // gives: [OTA] location: 10.2.0.1:80/update-v2.bin
 
   http.begin(location);                 // We can also use the elaborate versionof begin 
-
+  http.setAuthorization("arduino", "test");
   int httpResponseCode = http.GET();
   
   Serial.print("[OTA] HTTP Response code: ");
@@ -619,6 +621,13 @@ void OTAhandleSketchDownload() {
     return;
   }
   Serial.println("[OTA] Ready to update");
+
+  char vstr[8];
+  itoa(VERSION, vstr, 10);
+
+  http.begin(location);
+  updater.update(http, vstr);
+  
 
 
   // Need to have a look here: https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.cpp
@@ -687,7 +696,8 @@ void setup() {
   connect_wifi();
 
   /// FASTLED                                                 // @TODO This init shouldn't take place here, it should happen after a mode is chosen
-  Serial.println("[PIX] Setting up pixeltape");
+  Serial.print("[PIX] Setting up pixeltape");
+  Serial.println(pixel_length, DEC);
   FastLED.addLeds<NEOPIXEL, PIXEL_DATA>(leds, pixel_length);
 
   for(int i = 0; i < pixel_length; i++) {   
@@ -714,8 +724,8 @@ void setup() {
   DMX::Write(4, 255);
   */
 
-  Serial.println("[OTA] starting OTA service  ...");
-  ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "FlyingPigs789*", InternalStorage);
+  // Serial.println("[OTA] starting OTA service  ...");
+  // ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "test", InternalStorage);
 
   /// NATS
   Serial.print("[NATS] connecting to nats ...");
@@ -763,14 +773,15 @@ void loop() {
     // make sure new messages are handled
 	  nats.process();
     // check for WiFi OTA updates
-    ArduinoOTA.poll();
+    // ArduinoOTA.poll();
     // check for HTTP OTA updates
     OTAhandleSketchDownload();
   }
   yield();        // Needed for FastLED
 
   /// CHECK FOR IR DATA
-  if (irrecv.decode(&results)) {
+  // if (nats_mode == MODE_DMX_TO_PIXELS_W_IR || nats_mode == MODE_RGB_TO_PIXELS_W_IR || nats_mode == MODE_FX_TO_PIXELS_W_IR || nats_mode == MODE_AUTO_FX_W_IR) {
+    if (irrecv.decode(&results)) {
     /*
     Serial.print("[IR] in Basic:");
     Serial.println(resultToHumanReadableBasic(&results));
@@ -875,6 +886,7 @@ void loop() {
     }
     irrecv.resume();  // Receive the next value
   }
+  // }
 
   /// Main Processing based on mode
   switch (nats_mode)
