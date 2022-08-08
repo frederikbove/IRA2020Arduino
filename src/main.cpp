@@ -33,7 +33,7 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION     5     // This is for HTTP based OTA, end user release versions tracker
+#define VERSION     4     // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
 * VERSION 2 : intermediate version Daan
@@ -103,7 +103,6 @@ CRGB leds[MAX_PIXELS];
 #include "build_in_fx.h"
 #include "nats_cb_handlers.h"
 #include "OTAStorage.h"
-
 
 // Used to set the pinMode of each used pin and attach Interrupts where required
 void configure_IO() {
