@@ -8,6 +8,7 @@ void nats_announce()
   announce_message += String("\"HWREV\":\"") + String("Rev.01") + String("\",");          // Add HW board Rev
   announce_message += String("\"EXTMODE\":\"") + String(ext_mode) + String("\",");
   announce_message += String("\"MODE\":\"") + String(nats_mode) + String("\",");
+  announce_message += String("\"VERSION\":\"") + String(VERSION) + String("\",");
   
   String name;
   // send the name back
