@@ -21,7 +21,6 @@
 #include <esp_dmx.h>
 
 #include <ArduinoJson.h>
-// #include <ArduinoOTA.h>
 
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
@@ -34,9 +33,13 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION     3     // This is for HTTP based OTA, end user release versions tracker
+#define VERSION     5     // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
+* VERSION 2 : intermediate version Daan
+* VERSION 3 : final version DAAN
+* VERSION 4 : disabled IR for WDT errors on some boards (Koen)
+* VERSION 5 : trying to get IR fixed
 */
 
 // GPIO PIN DEFINITION
@@ -110,13 +113,6 @@ void configure_IO() {
 	pinMode(MODE2, INPUT_PULLUP);
 	pinMode(MODE3, INPUT_PULLUP);
 	pinMode(MODE4, INPUT_PULLUP);
-
-  /*
-  attachInterrupt(MODE1, Mode_ISR, CHANGE);
-  attachInterrupt(MODE2, Mode_ISR, CHANGE);
-  attachInterrupt(MODE3, Mode_ISR, CHANGE);
-  attachInterrupt(MODE4, Mode_ISR, CHANGE);
-  */
 }
 
 // Gets the MAC address and prints it to serial Monitor
@@ -600,13 +596,6 @@ void OTAhandleSketchDownload() {
     Serial.println(http.header(i));
   }
 
-  /*
-  uint8_t buff[128] = {0};
-  WiFiClient* stream = http.getStreamPtr();
-  OTAStorage* _storage;
-  long read = 0;
-  */
-
   uint32_t space = ESP.getFreeSketchSpace();
   Serial.print("[OTA] Free Sketch Space: ");
   Serial.println(space);
@@ -688,9 +677,11 @@ void setup() {
   Serial.println(getMode(), DEC);
 
   /// IR
+  /*
   irrecv.enableIRIn();  // Start the IR receiver
   Serial.print("[IRrecv] running and waiting for IR message on Pin ");
   Serial.println(IR_PIN);
+  */
 
   /// WIFI
   connect_wifi();
@@ -713,20 +704,6 @@ void setup() {
   Serial.println("[DMX] Setting up DMX");
   DMX::Initialize(output, true);      // Output & Double Pins
   
-  /* DMX Test
-  Serial.println("[DMX] Test CH1");
-  DMX::Write(1, 255);
-  delay(500);
-  DMX::Write(2, 255);
-  delay(500);
-  DMX::Write(3, 255);
-  delay(500);
-  DMX::Write(4, 255);
-  */
-
-  // Serial.println("[OTA] starting OTA service  ...");
-  // ArduinoOTA.begin(WiFi.localIP(), mac_string.c_str(), "test", InternalStorage);
-
   /// NATS
   Serial.print("[NATS] connecting to nats ...");
   nats.on_connect = nats_on_connect;
@@ -772,16 +749,23 @@ void loop() {
   {
     // make sure new messages are handled
 	  nats.process();
-    // check for WiFi OTA updates
-    // ArduinoOTA.poll();
     // check for HTTP OTA updates
     OTAhandleSketchDownload();
+
+    // send all status info
+    post++;
+    if (post == 100000)
+    {  
+      nats_publish_status();
+      post = 0;
+    }
   }
+  
   yield();        // Needed for FastLED
 
   /// CHECK FOR IR DATA
   // if (nats_mode == MODE_DMX_TO_PIXELS_W_IR || nats_mode == MODE_RGB_TO_PIXELS_W_IR || nats_mode == MODE_FX_TO_PIXELS_W_IR || nats_mode == MODE_AUTO_FX_W_IR) {
-    if (irrecv.decode(&results)) {
+  if (irrecv.decode(&results)) {
     /*
     Serial.print("[IR] in Basic:");
     Serial.println(resultToHumanReadableBasic(&results));
@@ -886,7 +870,6 @@ void loop() {
     }
     irrecv.resume();  // Receive the next value
   }
-  // }
 
   /// Main Processing based on mode
   switch (nats_mode)
@@ -928,13 +911,5 @@ void loop() {
 
     default:
       break;
-  }
-
-  // send all status info
-  post++;
-  if (post == 100000)
-  {  
-    nats_publish_status();
-    post = 0;
   }
 }
