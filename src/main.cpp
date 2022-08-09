@@ -33,13 +33,13 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION     4     // This is for HTTP based OTA, end user release versions tracker
+#define VERSION     5     // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
 * VERSION 2 : intermediate version Daan
 * VERSION 3 : final version DAAN
 * VERSION 4 : disabled IR for WDT errors on some boards (Koen)
-* VERSION 5 : trying to get IR fixed
+* VERSION 5 : doing some setup logic for EEPROM, fix pixellength 10 issue
 */
 
 // GPIO PIN DEFINITION
@@ -477,6 +477,8 @@ void setup_eeprom() {
     EEPROM.write(PIXEL_LENGTH, 10);
     EEPROM.write(HW_BOARD_VERSION, 1);
     EEPROM.write(HW_BOARD_SERIAL_NR, 2);
+    dev_name_length = 32;
+    EEPROM.write(DEV_NAME_LENGTH, dev_name_length);
     EEPROM.commit();
 }
 
@@ -652,16 +654,14 @@ void setup() {
 
   // EEPROM
   EEPROM.begin(EEPROM_SIZE);
-  setup_eeprom();
   eeprom_restate();             // read all values back from EEPROM upon startup
-  eeprom_variables_print();
-
   if(dev_name_length > 32)    // only for empty platforms
   {
-    dev_name_length = 32;
-    EEPROM.write(DEV_NAME_LENGTH, dev_name_length);
-    EEPROM.commit();
+    Serial.print("[SYS] First boot");
+    setup_eeprom();
+    eeprom_restate(); 
   }
+  eeprom_variables_print();
 
   Serial.print("[SYS] setup() running on core ");
   Serial.println(xPortGetCoreID());
