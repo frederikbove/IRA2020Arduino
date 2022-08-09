@@ -1,0 +1,30 @@
+
+overlord@DESKTOP-3SO1OB7:~/.ssh$ ssh root@fri3d.triggerwear.io
+
+root@scw-dominion:~# ls
+nats  snap
+root@scw-dominion:~# cd nats
+root@scw-dominion:~/nats# ls
+config  docker-compose.yml  ota
+root@scw-dominion:~/nats# cd ota
+root@scw-dominion:~/nats/ota#
+
+
+https://github.com/maxgerhardt/pio-espidf-simple-ota-example
+
+https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.cpp
+
+//const char* WIFI_SSID = "area3001_iot";
+//const char* WIFI_PSK = "hackerspace";
+
+//const char* WIFI_SSID = "kbdesign";
+//const char* WIFI_PSK = "536EFE2A33";
+
+//const char* WIFI_SSID = "fri3d-IRA";
+//const char* WIFI_PSK = "6-S#K5=_VN";
+
+//const char* WIFI_SSID = "Galaxy A51677B";
+//const char* WIFI_PSK = "Inge1206";
+
+const char* WIFI_SSID = "AndroidAP";
+const char* WIFI_PSK = "xbwk3760";
