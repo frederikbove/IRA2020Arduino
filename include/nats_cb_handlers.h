@@ -18,7 +18,22 @@ void nats_announce()
     if(letter != 0xff)
       name +=  letter;
   }
-  announce_message += String("\"NAME\":\"") + name + String("\"}");
+    
+  announce_message += String("\"NAME\":\"") + name + String("\",");
+
+  // TODO: Add everything in EEPROM,  ...
+  announce_message += String("\"pixel_length\": ") + pixel_length + String(",");
+  announce_message += String("\"fx\": ") + fx_select + String(",");
+  announce_message += String("\"fx_speed\": ") + fx_speed + String(",");
+  announce_message += String("\"fx_xfade\": ") + fx_xfade + String(",");
+  announce_message += String("\"fx_fgnd_r\": ") + fx_fgnd_r + String(",");
+  announce_message += String("\"fx_fgnd_g\": ") + fx_fgnd_g + String(",");
+  announce_message += String("\"fx_fgnd_b\": ") + fx_fgnd_b + String(",");
+  announce_message += String("\"fx_bgnd_r\": ") + fx_bgnd_r + String(",");
+  announce_message += String("\"fx_bgnd_g\": ") + fx_bgnd_g + String(",");
+  announce_message += String("\"fx_bgnd_b\": ") + fx_bgnd_b + String("");
+
+  announce_message += String("}");
 
   // TODO: Add everything in EEPROM,  ...
   String announce_topic = String(NATS_ROOT_TOPIC) + String(".announce");

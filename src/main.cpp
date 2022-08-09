@@ -33,13 +33,15 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION     5     // This is for HTTP based OTA, end user release versions tracker
+#define VERSION      7    // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
 * VERSION 2 : intermediate version Daan
 * VERSION 3 : final version DAAN
 * VERSION 4 : disabled IR for WDT errors on some boards (Koen)
 * VERSION 5 : doing some setup logic for EEPROM, fix pixellength 10 issue
+* VERSION 6 : fixing and debugging on camp
+* VERSION 7 : Fixed OTA
 */
 
 // GPIO PIN DEFINITION
@@ -551,6 +553,7 @@ void OTAhandleSketchDownload() {
 
   Serial.println("[OTA] HTTP OTA Handler check");
 
+  // const char* SERVER = "http://51.15.194.130"; // must be string for HttpClient
   const char* SERVER = "http://fri3d.triggerwear.io"; // must be string for HttpClient
   const unsigned short SERVER_PORT = 80;
 
@@ -615,10 +618,13 @@ void OTAhandleSketchDownload() {
   char vstr[8];
   itoa(VERSION, vstr, 10);
 
-  http.begin(location);
-  updater.update(http, vstr);
-  
+  // HTTPClient http2;
 
+  http.end();
+  http.begin(location);
+  Serial.print("[OTA] Trying to update from ");
+  Serial.println(location);
+  updater.update(http, vstr);
 
   // Need to have a look here: https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.cpp
   // https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPUpdate/src/HTTPUpdate.h
