@@ -4,9 +4,10 @@
 #define FX_FGND_BGND_LOOP   2                   //  x       -       x       x
 #define FX_FGND_BGND_SWITCH 3                   //  x       -       x       x
 #define FX_FIRE2021         4                   //  SPARK   COOL    -       -    
+#define FX_RAINBOW          5                   //  x       -       -       -
+#define FX_RAINBOW_SPREAD   6                   //  x       -       -       -
 
-#define FX_NR               5
-
+#define FX_NR               7
 // MORE FX TO DO: 
 // https://www.tweaking4all.nl/hardware/arduino/adruino-led-strip-effecten/#LEDStripEffectMeteorRegen
 // https://www.tweaking4all.nl/hardware/arduino/adruino-led-strip-effecten/
@@ -15,6 +16,7 @@
 int    current_fx_pixel = 0;
 int    prev_fx_pixel    = -1;
 
+// Loops 1 pixel fgnd and remainder bgnd
 void fx_pixel_loop()
 {
     leds[current_fx_pixel].r = fx_fgnd_r;
@@ -39,6 +41,7 @@ void fx_pixel_loop()
     FastLED.delay(10 * (fx_speed+1));
 }
 
+// Random loops between fgnd and bgnd
 void fx_rdn_pixel_loop()
 {
     current_fx_pixel = random(pixel_length);
@@ -59,6 +62,7 @@ void fx_rdn_pixel_loop()
     FastLED.delay(10 * (fx_speed+1));
 }
 
+// Loops between FGND and BGND on all
 void fx_fgnd_bgnd_loop()
 {
     if(prev_fx_pixel == -1)  // we use prev_fx_pixel to indicate if we are in the FGND or the BGND iteration
@@ -90,6 +94,7 @@ void fx_fgnd_bgnd_loop()
     FastLED.delay(10 * (fx_speed+1));
 }
 
+// Switch all between FGND and BGND
 void fx_fgnd_bgnd_switch()
 {
     if(prev_fx_pixel == -1)  // we use prev_fx_pixel to indicate if we are in the FGND or the BGND iteration
@@ -195,6 +200,42 @@ void fire2021()
     FastLED.delay(16);      // should give us about 60fps
 }
 
+// Rainbow all in same color
+void rainbow()
+{
+    uint8_t hue = prev_fx_pixel;
+    if( hue < 0)        // other FX use this as negative
+    {
+        hue = 0;
+    }
+    for(int index = 0; index < pixel_length; index++)
+    {
+        leds[index].setHSV(hue, 255, 255);
+    }
+    FastLED.delay(10 * (fx_speed+1));
+    hue++;
+    prev_fx_pixel = hue;
+
+    FastLED.delay(10 * (fx_speed+1));
+}
+
+// Rainbow spread over all pixels
+void rainbow_spread()
+{
+    uint8_t hue = prev_fx_pixel;
+    if( hue < 0)        // other FX use this as negative
+    {
+        hue = 0;
+    }
+    prev_fx_pixel = hue+1;    // stores the hue of the first pixel, for next iteration
+    for(int index = 0; index < pixel_length; index++)
+    {
+        leds[index].setHSV(hue, 255, 255);
+        hue++;
+    }
+    FastLED.delay(10 * (fx_speed+1));
+}
+
 void process_build_in_fx()
 {
     switch (fx_select)
@@ -219,6 +260,14 @@ void process_build_in_fx()
         fire2021();
         break;
 
+    case FX_RAINBOW:
+        rainbow();
+        break;
+
+    case FX_RAINBOW_SPREAD:
+        rainbow_spread();
+        break;
+        
     default:
         Serial.println("[PIX] Invalid FX Set"); 
         break;
