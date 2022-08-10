@@ -33,7 +33,7 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION      7    // This is for HTTP based OTA, end user release versions tracker
+#define VERSION      8    // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
 * VERSION 2 : intermediate version Daan
@@ -42,6 +42,7 @@
 * VERSION 5 : doing some setup logic for EEPROM, fix pixellength 10 issue
 * VERSION 6 : fixing and debugging on camp
 * VERSION 7 : Fixed OTA
+* VERSION 8 : Only try Wifi 8 times before turning on lamps, added rainbow FX
 */
 
 // GPIO PIN DEFINITION
@@ -253,14 +254,15 @@ void connect_wifi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PSK, 4);
   
+  int count = 0;
+
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     // wait 1 second for re-trying
     delay(1000);
+    count++;
+    if(count == 5) break; // break out of the while loop
   }
-
-  //Serial.print(" connected IP: ");
-  //Serial.println(WiFi.localIP());
 }
 
 bool parse_server(const char* msg) {
@@ -651,7 +653,6 @@ void dmx_to_full() {
 }
 
 void setup() {
-
   /// SERIAL PORT
   Serial.begin(115200);
   Serial.println(" ");
@@ -754,6 +755,7 @@ void loop() {
   {
     // make sure new messages are handled
 	  nats.process();
+
     // check for HTTP OTA updates
     OTAhandleSketchDownload();
 
