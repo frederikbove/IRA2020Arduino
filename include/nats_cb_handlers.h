@@ -31,7 +31,7 @@ void nats_announce()
   announce_message += String("\"fx_fgnd_b\": ") + fx_fgnd_b + String(",");
   announce_message += String("\"fx_bgnd_r\": ") + fx_bgnd_r + String(",");
   announce_message += String("\"fx_bgnd_g\": ") + fx_bgnd_g + String(",");
-  announce_message += String("\"fx_bgnd_b\": ") + fx_bgnd_b + String("");
+  announce_message += String("\"fx_bgnd_b\": ") + fx_bgnd_b + String(" ");
 
   announce_message += String("}");
 
