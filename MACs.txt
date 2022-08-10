@@ -43,3 +43,4 @@ b0_5_8a_96_2b_c8    069
 
 PROTOTYPES
 8_1f_47_c4_a_24     P000 red
+d0_1e_47_c4_a_24    P003 red
