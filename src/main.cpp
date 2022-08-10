@@ -33,7 +33,7 @@
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 
-#define VERSION      8    // This is for HTTP based OTA, end user release versions tracker
+#define VERSION      9    // This is for HTTP based OTA, end user release versions tracker
 /* Version History
 * VERSION 1 : original HTTP OTA implementation
 * VERSION 2 : intermediate version Daan
@@ -43,6 +43,7 @@
 * VERSION 6 : fixing and debugging on camp
 * VERSION 7 : Fixed OTA
 * VERSION 8 : Only try Wifi 8 times before turning on lamps, added rainbow FX
+* VERSION 9 : Added RGB2DMX functionality
 */
 
 // GPIO PIN DEFINITION
@@ -543,7 +544,7 @@ void espOTA( String location)
 * Assumes a HTTP server runs on the network hosting the binary files
 */
 void OTAhandleSketchDownload() {
-  const unsigned long CHECK_INTERVAL = 60000;   // every 10min = 600000
+  const unsigned long CHECK_INTERVAL = 600000;   // every 10min = 600000
 
   static unsigned long previousMillis;
   unsigned long currentMillis = millis();
@@ -652,6 +653,23 @@ void dmx_to_full() {
   }
 }
 
+// When in pixelmode the DMX outputs as it is a chain of RGB pixels
+void RGB2DMX() 
+{
+  uint length;
+  if(pixel_length > 170)  // There only fit 512/3 RGB pixels in a DMX out
+    length = 170;         // Only do the first 170;
+  else
+    length = pixel_length;
+
+  for(uint i = 0; i < pixel_length; i++)
+  {
+    DMX::Write((i*3)+1, leds[i].r);
+    DMX::Write((i*3)+2, leds[i].g);
+    DMX::Write((i*3)+3, leds[i].b);  
+  }
+}
+
 void setup() {
   /// SERIAL PORT
   Serial.begin(115200);
@@ -668,6 +686,7 @@ void setup() {
     setup_eeprom();
     eeprom_restate(); 
   }
+
   eeprom_variables_print();
 
   Serial.print("[SYS] setup() running on core ");
@@ -881,7 +900,7 @@ void loop() {
   /// Main Processing based on mode
   switch (nats_mode)
   {
-    case MODE_RGB_TO_PIXELS_W_IR:
+    case MODE_RGB_TO_PIXELS_W_IR:      // @TODO check this
       if(ir_delay != 0)
       {
         ir_delay++;
@@ -890,9 +909,10 @@ void loop() {
       }
     case MODE_RGB_TO_PIXELS_WO_IR:
       FastLED.show();
+      RGB2DMX();
       break;
   
-    case MODE_FX_TO_PIXELS_W_IR:
+    case MODE_FX_TO_PIXELS_W_IR:      // @TODO check this
       if(ir_delay != 0)
       {
         ir_delay++;
@@ -902,6 +922,7 @@ void loop() {
     case MODE_FX_TO_PIXELS_WO_IR:
       process_build_in_fx();
       FastLED.show();
+      RGB2DMX();        
       break;
 
     case MODE_WHITE_PIXELS:
