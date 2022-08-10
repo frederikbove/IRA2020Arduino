@@ -42,8 +42,8 @@
 * VERSION 5 : doing some setup logic for EEPROM, fix pixellength 10 issue
 * VERSION 6 : fixing and debugging on camp
 * VERSION 7 : Fixed OTA
-* VERSION 8 : Only try Wifi 8 times before turning on lamps, added rainbow FX
-* VERSION 9 : Added RGB2DMX functionality
+* VERSION 8 : Only try Wifi 5 times before turning on lamps, added rainbow FX
+* VERSION 9 : Added RGB2DMX functionality, set OTA to 10min interval
 */
 
 // GPIO PIN DEFINITION
