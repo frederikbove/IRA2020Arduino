@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "IRA2024",
+			"path": "../../PlatformIO/Projects/IRA2024"
+		}
+	],
+	"settings": {}
+}
