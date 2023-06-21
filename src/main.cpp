@@ -8,11 +8,10 @@
 
 #include <Arduino.h>
 
+#include "defines.h"
+
 #include <WiFi.h>
 #include <ArduinoNats.h>
-
-#define _IR_ENABLE_DEFAULT_ false     // This has been moved to compiler arguments
-#define DECODE_JVC          true
 
 #include <IRremoteESP8266.h>
 #include <IRrecv.h>
@@ -32,46 +31,6 @@
 #include "esp_ota_ops.h"          
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
-
-#define VERSION      9    // This is for HTTP based OTA, end user release versions tracker
-/* Version History
-* VERSION 1 : original HTTP OTA implementation
-* VERSION 2 : intermediate version Daan
-* VERSION 3 : final version DAAN
-* VERSION 4 : disabled IR for WDT errors on some boards (Koen)
-* VERSION 5 : doing some setup logic for EEPROM, fix pixellength 10 issue
-* VERSION 6 : fixing and debugging on camp
-* VERSION 7 : Fixed OTA
-* VERSION 8 : Only try Wifi 5 times before turning on lamps, added rainbow FX
-* VERSION 9 : Added RGB2DMX functionality, set OTA to 10min interval
-*/
-
-// GPIO PIN DEFINITION
-#define DEBUG_LED 	15
-
-#define IR_PIN      5
-
-#define DMX_TX      13
-#define DMX_RX      23
-#define DMX_TEN     19
-#define DMX_REN     18
-
-#define PIXEL_DATA  2
-#define PIXEL_CLK   4
-
-#define MODE1		    34
-#define MODE2		    35
-#define MODE3		    36
-#define MODE4		    39
-
-#define IR_DELAY    10000  // cycles the IR shows over the LEDs
-
-//#define NATS_SERVER     "demo.nats.io"
-//#define NATS_SERVER     "51.15.194.130" // NATS Server Daan ScaleWay
-//#define NATS_SERVER     "10.2.0.2"        // NATS on PINKY (KB Design)
-#define NATS_SERVER     "fri3d.triggerwear.io"
-#define NATS_ROOT_TOPIC "area3001"
-#define MAX_PIXELS      255       // @TODO this needs to increase, but then memory map needs to be adjusted
 
 #include "eeprom_map.h"           // this keeps the map of the non-volatile storage & the variables belonging to it
 #include "operation_modes.h"      // these define all possible operation modes of IRA2020
@@ -411,69 +370,6 @@ void nats_on_disconnect() {
   Serial.println("[NATS] Disconnect");
 }
 
-/* This routine is just to check the base64 math
-*/
-void base64test() 
-{
-  uint8_t length = 2+1+(3*4); // 2 length, 1 #pixeldata, 4pixels x 3 bytes/pixel
-  
-  Serial.print("[B64] Length: ");
-  Serial.println(length);
-
-  uint8_t input[length];  
-
-  input[0] = 0;
-  input[1] = 4;
-  input[2] = 3;
-
-  input[3] = 255; // pixel 1
-  input[4] = 0;
-  input[5] = 0;
-
-  input[6] = 0; // pixel 2
-  input[7] = 255;
-  input[8] = 0;
-
-  input[9] = 0; // pixel 3
-  input[10] = 0;
-  input[11] = 255;
-
-  input[12] = 255; // pixel 4
-  input[13] = 255;
-  input[14] = 255;
-
-  uint8_t output_length = 4* (ceil(length/3)) + 1; // +1 for null termination char
-
-  Serial.print("[B64] Out Length: ");
-  Serial.println(output_length); 
-
-  uint8_t output[output_length];
-
-  uint8_t encoded_length = encode_base64(input, length, output);
-
-  Serial.print("[B64] Encoded Length: ");
-  Serial.println(encoded_length); 
-
-  Serial.print("[B64] Encoded: ");
-  Serial.println((char *) output); 
-
-  uint8_t decoded_length = length;   
-  uint8_t decoded[decoded_length];
-
-  unsigned int binary_length = decode_base64(output, decoded);
-
-  Serial.print("[B64] Decoded Length: ");
-  Serial.println(binary_length); 
-
-  Serial.print("[B64] Decoded: ");
-  for(int i = 0; i<length; i++)
-  {
-    Serial.print(decoded[i],HEX);
-    Serial.print(" ");
-  }
-  Serial.println(" ");
-}
-
 /* This routine is just to configure boards that have never booted
 */
 void setup_eeprom() {
@@ -685,8 +581,7 @@ void setup() {
     Serial.print("[SYS] First boot");
     setup_eeprom();
     eeprom_restate(); 
-  }
-
+  }  
   eeprom_variables_print();
 
   Serial.print("[SYS] setup() running on core ");

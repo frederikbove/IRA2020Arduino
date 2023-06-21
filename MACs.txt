@@ -18,7 +18,6 @@ ac_4_8a_96_2b_c8    031 wc
 94_e5_8a_96_2b_c8   075 wc
 d0_1f_47_c4_a_24    118 wc
 dc_1a_8a_96_2b_c8   014 wc
-c8_1f_47_c4_a_24    113 wc
 34_1f_47_c4_a_24    110 wc
 6c_4_8a_96_2b_c8    059 wc
 8c_1b_8a_96_2b_c8   106 wc
@@ -43,4 +42,7 @@ b0_5_8a_96_2b_c8    069
 
 PROTOTYPES
 8_1f_47_c4_a_24     P000 red
-d0_1e_47_c4_a_24    P003 red
+d0_1e_47_c4_a_24    P003 red  broken
+a0_1f_47_c4_a_24    104  dmx
+8c_1f_47_c4_a_24    105  dmx
+c8_1f_47_c4_a_24    113  dmx 

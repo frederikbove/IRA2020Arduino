@@ -45,6 +45,9 @@ TODO:
 * make sure we send full error message back and not NOK             > done
 * put name in announce message                                      > done
 * send IR on a topic                                                > done
-* OTA from file on server
 * make OTA server configurable
 * 
+
+https://www.arduino.cc/reference/en/libraries/sunset/
+also see platform.io libraries
+
