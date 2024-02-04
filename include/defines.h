@@ -34,7 +34,7 @@
 //#define NATS_SERVER     "demo.nats.io"
 //#define NATS_SERVER     "51.15.194.130" // NATS Server Daan ScaleWay
 //#define NATS_SERVER     "10.2.0.2"        // NATS on PINKY (KB Design)
-#define NATS_SERVER       "fri3d.triggerwear.io"
+#define NATS_SERVER       "51.15.125.58"
 #define NATS_ROOT_TOPIC   "area3001"
 #define MAX_PIXELS        255       // @TODO this needs to increase, but then memory map needs to be adjusted
 
